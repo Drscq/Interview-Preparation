@@ -58,6 +58,8 @@ npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) to interact with Zenith.
 
+### 4. UI Preview
+![alt text](/figures/UIPreview.png)
 ---
 
 ## ☁️ Deployment (Cloudflare Edge)
