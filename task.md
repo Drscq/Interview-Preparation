@@ -1,0 +1,13 @@
+- [completed] Explore project context
+- [completed] Ask clarifying questions
+- [completed] Propose 2-3 approaches
+- [completed] Present design
+- [completed] Write design doc
+- [completed] Transition to implementation plan
+- [completed] Execute Task 1: Create start-here index
+- [completed] Execute Task 2: Create two-day plan
+- [completed] Execute Task 3: Create project mastery guide
+- [completed] Execute Task 4: Create interview question bank
+- [completed] Execute Task 5: Create VT UAA fit guide
+- [completed] Execute Task 6: Create mock interview and email reply
+- [completed] Add last-minute cheat sheet
