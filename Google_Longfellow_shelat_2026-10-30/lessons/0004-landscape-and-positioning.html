@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0004 · 战场现状：谁在做 ML-DSA-in-ZK，你站在哪</title>
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<main>
+<header class="lesson">
+  <div class="kicker">Lesson 0004 · 约 20 分钟 · <a href="../index.html">返回目录</a></div>
+  <h1>战场现状：谁在做 ML-DSA-in-ZK，你站在哪</h1>
+  <p class="goal"><strong>这一课的收获：</strong>知道 Google 自己的 ML-DSA 电路做到哪、最近两周有三篇论文拿它当基线，并练会<strong>不踩雷</strong>地谈这些竞品 —— 把它们变成「我能帮你们解决的问题」，而不是「你们落后了」。</p>
+</header>
+
+<h2>1. 他们已经做了什么</h2>
+<ul>
+  <li><strong>ML-DSA 电路已在 repo 里</strong>：<code>lib/circuits/tests/pq/ml_dsa/</code>（ML-DSA-44、-65），2026-02 首次提交，2026-07 最后一次改动。头注释列出 SampleInBall（受约束的 Fisher–Yates）、NTT 域矩阵乘、UseHint（"Interval Shifting"）、z 的范围检查、<code>SHAKE256(μ‖w1Encode) == c̃</code>。<span class="cite"><a href="https://github.com/longfellow-zk/longfellow-zk/tree/main/lib/circuits/tests/pq/ml_dsa">repo</a></span></li>
+  <li>README 原话：这些是 <em>"experimental circuits ... not been carefully vetted ... should not be used in a production use case"</em>；SHA-3 电路写着 <em>"DO NOT USE IN PRODUCTION"</em>，每 6 轮 commit 一次状态（<code>sha3_slicing.h</code>）。</li>
+  <li>IETF 125 / 126 公开数字：ML-DSA-44 签名持有证明 <strong>858 ms（Mac M4）</strong>；IETF 126 那套 slide 的标题就是 <strong>"libZK: PQ zero knowledge"</strong>。<span class="cite"><a href="https://datatracker.ietf.org/meeting/126/materials/slides-126-cfrg-longfellow-zk-00">IETF 126</a></span></li>
+  <li>abhi 在 IETF 126 CFRG 会议纪要里的原话：<em>"We have done formal verif for ECDSA. We have proven that our circuit is equivalent to the spec. ML-DSA is more difficult to do."</em> 以及 <em>"there are at least 3 other groups that are developing circuits"</em>。<span class="cite"><a href="https://datatracker.ietf.org/doc/minutes-126-cfrg-202607220700/">minutes</a></span></li>
+</ul>
+<div class="warn">所以：你冷邮件里的观察是对的，但<strong>对他们不是新闻</strong>。面谈里别再把它当发现讲，把它当「我们看到的是同一件事」的共同语言，然后迅速转到下面的开放问题。</div>
+
+<h2>2. 最近两周的三篇（都以 Longfellow 为基线）</h2>
+<table>
+<tr><th>工作</th><th>做法</th><th>数字</th></tr>
+<tr><td><strong>GordieHowe</strong>（Sharp &amp; Grubbs, UMich；<a href="https://eprint.iacr.org/2026/2615">ePrint 2026/2615</a>，10-23）</td><td>多域语言 + Lean 认证的编译器；批量 Keccak</td><td>ML-DSA-44 签名持有证明 87.3 ms / 549 KiB（量子参数），<em>"70.2× faster ... than an optimized Longfellow circuit"</em>；把 Longfellow 的慢归因于逐块跨域 MAC（51%）和未批量化的 Keccak</td></tr>
+<tr><td><strong>Nowhere Man</strong>（NTT；<a href="https://eprint.iacr.org/2026/2472">ePrint 2026/2472</a>，S&amp;P 2027）</td><td>ML-DSA device binding，在 Longfellow 上把验签拆成比特部分和格部分</td><td>说 850 ms <em>"impractical ... requires several calls to SHAKE"</em>；ML-DSA-65 拆分后约 485–562 ms</td></tr>
+<tr><td><strong>edaBitE</strong>（Baum &amp; Beckmann, DTU；<a href="https://eprint.iacr.org/2026/2473">ePrint 2026/2473</a>）</td><td>VOLE-in-the-head，证明<strong>未修改</strong>的 ML-DSA 签名</td><td>盲签名约 1 MB，生成不到 1 秒</td></tr>
+</table>
+<p>更早的路线：Cloudflare / Policharla 等的 zkDilithium（把 SHA3 换成 ZK 友好的 Poseidon —— <strong>改了标准</strong>）；Jeudy–Roux-Langlois–Sanders、Bootle–Lyubashevsky 等的格专用凭证方案（<strong>不是 FIPS 204</strong>）。Longfellow 路线的卖点是：<strong>证明未修改的标准签名</strong>。这和 SHIELD「输出标准 ML-DSA 签名、verifier 不改」是同一种哲学。</p>
+
+<h2>3. 开放问题 → 你能接哪几个</h2>
+<table>
+<tr><th>开放问题</th><th>谁点出来的</th><th>你的相关证据</th></tr>
+<tr><td>(a) 隐藏公钥：ExpandA 和 tr 进电路（≈ 96 + 10 次置换）</td><td>Longfellow 论文的 device-key 隐藏需求；Nowhere Man</td><td>你在 SHIELD 里把 SHAKE / Keccak-f 当布尔电路做过</td></tr>
+<tr><td>(b) Keccak 布局：每 6 轮切片 vs 批量化</td><td>GordieHowe：批量化的 prover 快 17.1×</td><td>Verilog → Yosys → Bristol 电路流水线；SampleInBall 890K → 355K 门</td></tr>
+<tr><td>(c) 跨域一致性（GF(2<sup>128</sup>) ↔ F<sub>q</sub>）的代价</td><td>GordieHowe：MAC 占 51%</td><td>SHIELD 用 daBits 在算术 / 布尔 share 之间转换 —— 同一个问题的 MPC 版本</td></tr>
+<tr><td>(d) ML-DSA 电路与规范等价的形式化验证</td><td>abhi："ML-DSA is more difficult to do"</td><td>你的强项是<strong>找实现 bug</strong>（threshold-Falcon 两个静默 bug），不是 Lean —— 说清楚</td></tr>
+<tr><td>(e) 发证方一侧：issuer 用 ML-DSA 签发时的私钥保护</td><td>（你自己的角度）</td><td><strong>SHIELD 正是这个</strong>：n 台服务器门限签出标准 ML-DSA 签名</td></tr>
+</table>
+<p>(c) 这一行值得多想一秒：SHIELD 里的 <strong>daBits</strong> 就是「同一个随机比特在算术域和二元域里各有一份 share」，用来在 SPDZ 和 WRK17 之间搬数据。Longfellow 里两个证明系统之间用随机 MAC 证明 witness 一致，是同一个「跨域搬运」问题的 ZK 版本。可以把它说成一个你想学的类比，不要说成你已经有解法。</p>
+
+<h2>4. 怎么谈竞品（话术）</h2>
+<div class="say">I saw GordieHowe and the Nowhere Man paper this month — both use your ML-DSA circuit as the baseline, which I read as a sign that Longfellow is the reference everyone measures against. What I found interesting is that they both point at the same two costs: Keccak layout and the cross-field link. How do you think about those trade-offs for Longfellow, given that you care about a standardized, auditable spec?</div>
+<p>原则：① 主动提一次，显得你做了功课；② 用问题收尾，把话语权交给他们；③ 不复述「70× 更快」这种刺耳的数字，除非他们自己提；④ 他们提到时，承认 GordieHowe 的数字，然后问部署约束（标准化、审计、Rust 重写、形式化）—— 这些才是 Google 在乎、而论文不在乎的。</p>
+<div class="warn">别说：「GordieHowe 证明了 Longfellow 太慢」「你们的 Keccak 电路设计有问题」。Google 的电路是标着 experimental 的测试电路，论文拿来对比的是它。</div>
+
+<h2>自测</h2>
+<p class="score"></p>
+<div class="quiz" data-answer="1">
+  <div class="q">Q1. abhi 在 IETF 126 上说哪件事对 ML-DSA「更难」？</div>
+  <button class="opt">把 ML-DSA 电路移植到 Rust 重写版本</button>
+  <button class="opt">证明 ML-DSA 电路与规范等价的形式化</button>
+  <button class="opt">把 ML-DSA 证明的时间压到一百毫秒内</button>
+  <div class="why">原话："We have done formal verif for ECDSA ... ML-DSA is more difficult to do."</div>
+</div>
+<div class="quiz" data-answer="2">
+  <div class="q">Q2. GordieHowe 把 Longfellow 基线的慢主要归因于？</div>
+  <button class="opt">Ligero 打开的列数太多导致证明过大</button>
+  <button class="opt">sumcheck 轮数太多导致交互次数过多</button>
+  <button class="opt">逐块跨域 MAC 和未批量化的 Keccak</button>
+  <div class="why">MAC 占 ML-DSA-44 prover 时间 51%；批量化 Keccak 的 prover 快 17.1×。</div>
+</div>
+<div class="quiz" data-answer="0">
+  <div class="q">Q3. 面谈里第一次提到 GordieHowe，最好的收尾方式是？</div>
+  <button class="opt">提一个关于取舍的问题，把话交给他们</button>
+  <button class="opt">强调它比 Longfellow 快七十倍的结论</button>
+  <button class="opt">完全不提，假装没有读过这几篇论文</button>
+  <div class="why">提一次显得做过功课；用问题收尾，让他们讲部署约束。</div>
+</div>
+<div class="quiz" data-answer="1">
+  <div class="q">Q4. SHIELD 里哪个机制和 Longfellow 的跨域 MAC 解决的是同类问题？</div>
+  <button class="opt">WRK17 里的认证混淆电路预处理阶段</button>
+  <button class="opt">在算术与布尔 share 之间转换的 daBits</button>
+  <button class="opt">一次性可信 setup 中的私钥分发步骤</button>
+  <div class="why">daBits 让同一个比特在两个域各有 share —— 「跨域搬运」的 MPC 版本。</div>
+</div>
+<div class="recall">
+  <div class="q">回忆练习：从表 3 里挑两个你最有底气的开放问题，各写一句「我能贡献什么 + 第一周做什么」。</div>
+  <textarea></textarea>
+</div>
+
+<div class="source"><strong>首选原始资料</strong>
+<a href="https://datatracker.ietf.org/doc/minutes-126-cfrg-202607220700/">IETF 126 CFRG 会议纪要</a> 里 Longfellow 那一段（5 分钟，abhi 的原话都在这）；然后读 <a href="https://eprint.iacr.org/2026/2615">GordieHowe</a> 的摘要和 §7.5（15 分钟）。</div>
+<p class="ask">想演练「他们反问你 GordieHowe 怎么看」？直接跟我说，我扮演 abhi。</p>
+
+<nav class="lessons"><a href="0003-ml-dsa-verify-anatomy.html">← 上一课</a><a href="0005-interview-playbook.html">下一课：面谈剧本与项目提案 →</a></nav>
+</main>
+</body>
+</html>

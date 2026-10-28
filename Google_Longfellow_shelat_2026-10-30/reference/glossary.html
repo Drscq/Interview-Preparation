@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>术语表 · Longfellow × ML-DSA</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>dt{font-weight:600;margin-top:1rem} dd{margin:.2rem 0 0 0} .avoid{font-family:var(--sans);font-size:.8rem;color:var(--muted)}</style>
+</head>
+<body>
+<main>
+<header class="lesson">
+  <div class="kicker">Reference · <a href="../index.html">目录</a></div>
+  <h1>术语表</h1>
+  <p>这次面谈的统一用语。每个词只用一种说法；「避免」列出的是容易说混的别名。</p>
+</header>
+
+<h2>证明系统</h2>
+<dl>
+<dt>Longfellow ZK（libZK）</dt><dd>Google 的零知识证明库与协议：sumcheck + Ligero，只依赖 SHA-256；2026-10 起是 CFRG 文档 draft-irtf-cfrg-longfellow。<div class="avoid">避免：「Google Wallet ZK」「Longfellow SNARK」</div></dd>
+<dt>Ligero</dt><dd>基于 MPC-in-the-head 和交错 Reed–Solomon 码的零知识论证；证明大小约为电路规模的平方根，只假设抗碰撞哈希。在 Longfellow 中充当承诺 + 少量约束的证明。</dd>
+<dt>MPC-in-the-head</dt><dd>prover 在本地模拟一个 MPC 协议的所有参与方并承诺其 view，verifier 随机打开部分 view 来检查。</dd>
+<dt>sumcheck</dt><dd>逐变量地把一个布尔超立方体上的求和归约为一次随机点求值的交互协议；可靠性误差 ≤ v·d/|F|。</dd>
+<dt>GKR</dt><dd>在分层电路上逐层使用 sumcheck，把输出层的声称归约到输入层的协议族。</dd>
+<dt>quad（Longfellow 的门）</dt><dd>Longfellow 唯一的门类型：V<sub>j</sub>[i] = Σ Q<sub>j</sub>[i,ℓ,r]·V<sub>j+1</sub>[ℓ]·V<sub>j+1</sub>[r]。</dd>
+<dt>Reed–Solomon 邻近性测试</dt><dd>检查被承诺的行是否接近某个 RS 码字的测试；Ligero 用标量随机组合，Polygero 用低次多项式挑战。</dd>
+<dt>Polygero</dt><dd>Frigo &amp; shelat 2026-10 的新 RS 邻近性测试（ePrint 2026/2481），Longfellow v8 采用；128-bit 域内 127 bit 安全，参数在 Lean 4 中验证。</dd>
+<dt>跨域 MAC（witness consistency）</dt><dd>Longfellow 在两个不同域的证明之间，用对 witness 的随机 MAC 证明它们承诺的是同一份 witness。<div class="avoid">避免：「bridge」（Nowhere Man 的叫法，指拆分验签的方案）</div></dd>
+<dt>Fiat–Shamir</dt><dd>用哈希替代 verifier 的随机挑战，把交互证明变成非交互；Longfellow 用 SHA-256 种子 + AES-256-CTR 作 PRF。</dd>
+</dl>
+
+<h2>凭证</h2>
+<dl>
+<dt>mdoc（ISO 18013-5）</dt><dd>移动驾照 / 身份证格式。发证方对 MSO 签名，MSO 存属性摘要和 device key。</dd>
+<dt>MSO（Mobile Security Object）</dt><dd>mdoc 中被发证方签名的结构，含各属性的 SHA-256 摘要、device 公钥和有效期。</dd>
+<dt>proof of possession（签名持有证明）</dt><dd>证明「我知道一个能被某公钥验证通过的签名」而不泄露签名本身。<div class="avoid">避免：「签名证明」（含义太宽）</div></dd>
+<dt>device binding</dt><dd>要求出示时用手机里的 device 私钥签名，以防凭证被复制；device 公钥必须隐藏，否则可被追踪。</dd>
+<dt>issuer hiding</dt><dd>不暴露具体是哪个发证方签的，只证明属于某个可接受的发证方集合。</dd>
+</dl>
+
+<h2>ML-DSA</h2>
+<dl>
+<dt>ML-DSA（FIPS 204）</dt><dd>NIST 标准化的格基签名（原 CRYSTALS-Dilithium）；参数集 44 / 65 / 87。<div class="avoid">避免：在正式场合说「Dilithium」，除非指旧版本</div></dd>
+<dt>ExpandA</dt><dd>用 SHAKE128 从种子 ρ 拒绝采样出公开矩阵 Â（NTT 表示）；ML-DSA-44 约 96 次 Keccak 置换。</dd>
+<dt>tr</dt><dd>公钥的 64 字节 SHAKE256 摘要，参与计算 μ。</dd>
+<dt>μ（message representative）</dt><dd>H(tr ‖ M′) 的 64 字节结果；可在别的模块里预先算好。</dd>
+<dt>SampleInBall</dt><dd>用 SHAKE256 输出做 Fisher–Yates，从 c̃ 得到恰有 τ 个 ±1 的挑战多项式 c。</dd>
+<dt>UseHint</dt><dd>用签名里的 hint h 修正 w′ 的高位比特，得到 w′₁。</dd>
+<dt>Keccak-f[1600]</dt><dd>SHA-3 / SHAKE 的置换，24 轮；布尔电路约 38,400 个 AND 门（χ 是唯一的非线性步骤）。</dd>
+</dl>
+
+<h2>你的工作</h2>
+<dl>
+<dt>SHIELD</dt><dd>门限 ML-DSA（IEEE S&amp;P 2026，共同一作）：一个 CA 下 n 台签名服务器，n-of-n，在 malicious-secure 混合 MPC 中执行未修改的 FIPS 204 签名，输出标准签名。</dd>
+<dt>daBits</dt><dd>同一个随机比特在算术域和二元域中各有一份 share，用于 SPDZ 与混淆电路之间的转换。</dd>
+<dt>FLOCK</dt><dd>FALCON 兼容的门限签名（一作，USENIX Security 2027 第二轮）。</dd>
+<dt>HERO</dt><dd>带 untrusted helper 的 ORAM（一作，NDSS 2027 在审）；helper 与 server 不合谋。</dd>
+</dl>
+</main>
+</body>
+</html>

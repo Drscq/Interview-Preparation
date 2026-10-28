@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0002 · 用 MPC 的眼光看 Ligero 和 sumcheck</title>
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<main>
+<header class="lesson">
+  <div class="kicker">Lesson 0002 · 约 25 分钟 · <a href="../index.html">返回目录</a></div>
+  <h1>用 MPC 的眼光看 Ligero 和 sumcheck</h1>
+  <p class="goal"><strong>这一课的收获：</strong>你没做过 ZK 证明系统，但做过 malicious-secure MPC。学会用 MPC 的语言讲 Ligero（MPC-in-the-head）和 sumcheck，被追问时能接住两三层，并且<strong>知道自己的边界在哪</strong>。</p>
+</header>
+
+<h2>1. Ligero = 把一个 MPC 协议「在脑子里」跑一遍</h2>
+<p>Ligero 摘要原话：它是把 <em>"the general transformation of Ishai et al. (STOC 2007) [MPC-in-the-head]"</em> 应用到 Damgård–Ishai 的 MPC 协议上，<em>"a simple zero-knowledge interactive PCP based on 'interleaved' Reed-Solomon codes"</em>，通信量 <em>"proportional to the square-root of the verification circuit size"</em>，<em>"can be based on any collision-resistant hash function"</em>。<span class="cite"><a href="https://eprint.iacr.org/2022/1608">Ligero, ePrint 2022/1608</a></span></p>
+<div class="grid2">
+<div>
+<h3>你在 SHIELD 里做的</h3>
+<p>n 台<strong>真实</strong>服务器各持私钥的一个 share，跑 SPDZ + WRK17 把 FIPS 204 签名算出来；任意 n−1 台作恶也只能让协议 abort。</p>
+</div>
+<div>
+<h3>MPC-in-the-head 做的</h3>
+<p>prover 一个人<strong>模拟</strong>所有参与方，把 witness 秘密分享给它们、跑完协议、承诺每方的 view；verifier 随机打开一部分 view 检查一致性。打开的那几方看不到秘密 → 零知识；作弊会在被打开的 view 里露馅 → 可靠性。</p>
+</div>
+</div>
+<p>在 Ligero 里，「秘密分享」就是 <strong>Reed–Solomon 编码</strong>（Shamir 分享本身就是 RS 码字），「打开几个参与方」就是<strong>打开码字矩阵的若干列</strong>。Longfellow 用码率 1/7、打开 132 列。<span class="cite"><a href="https://cic.iacr.org/p/3/1/7">CiC §5</a></span></p>
+<div class="say">I haven't built a proof system, but MPC-in-the-head feels familiar from the other side: in SHIELD the parties are real servers, in Ligero the prover simulates them and the verifier audits a few views. In both, the Reed–Solomon / Shamir structure makes linear work cheap and the nonlinear Boolean work — Keccak's χ — is what you pay for.</div>
+<div class="warn">边界：最后一句「非线性布尔运算是大头」在 SHIELD 里是你实测的；在 Longfellow 里有第三方证据支持（GordieHowe、Nowhere Man，见 <a href="0004-landscape-and-positioning.html">第 0004 课</a>），但 Longfellow 的代价模型不是逐门计费 —— sumcheck 处理电路，Keccak 的贵主要来自深度和跨域连接。被追问就说「consistent with what GordieHowe measured」，别说成你测过 Longfellow。</div>
+
+<h2>2. sumcheck：一次一个变量地把求和「剥掉」</h2>
+<p>目标：让 verifier 相信 <code>H = Σ<sub>b∈{0,1}<sup>v</sup></sub> g(b)</code>，而 verifier 自己算要 2<sup>v</sup> 次。<span class="cite"><a href="https://people.cs.georgetown.edu/jthaler/ProofsArgsAndZK.pdf">Thaler PAZK §4.1</a></span></p>
+<ol>
+  <li>第 1 轮：prover 发一元多项式 <code>g₁(X₁)</code>，声称它等于把 x₂…x<sub>v</sub> 全部求和后的结果；verifier 检查 <code>g₁(0) + g₁(1) = H</code>，然后随机选 <code>r₁</code>。</li>
+  <li>第 i 轮同理，把声称值变成 <code>g<sub>i−1</sub>(r<sub>i−1</sub>)</code>。</li>
+  <li>v 轮后 verifier 只需自己算一次 <code>g(r₁,…,r<sub>v</sub>)</code>。</li>
+</ol>
+<p>可靠性误差 <code>≤ v·d/|F|</code>（d 为每个变量的次数）—— 所以要大域，这就是为什么 Longfellow 在 F<sub>q</sub> 上要扩到 F<sub>q<sup>6</sup></sub>（第 0003 课）。<span class="cite"><a href="https://people.cs.georgetown.edu/jthaler/ProofsArgsAndZK.pdf">PAZK Prop. 4.1</a></span></p>
+
+<h3>GKR：sumcheck 一层一层往下推</h3>
+<p>对分层电路，从输出层的声称出发，每层用一次 sumcheck 把「这一层的值」归约成「下一层多线性扩展在某点的值」，直到输入层。<span class="cite"><a href="https://people.cs.georgetown.edu/jthaler/ProofsArgsAndZK.pdf">PAZK §4.6</a></span> abhi 是 Hyrax（S&amp;P 2018）的合作者，这条线是他的老本行。</p>
+<p>Longfellow 的电路只有一种门 —— <strong>quad</strong>：<code>V<sub>j</sub>[i] = Σ Q<sub>j</sub>[i,ℓ,r] · V<sub>j+1</sub>[ℓ] · V<sub>j+1</sub>[r]</code>。这让椭圆曲线加法的深度从 5 降到 3。<span class="cite"><a href="https://cic.iacr.org/p/3/1/7">CiC §2.1</a></span></p>
+
+<h2>3. 把两者粘起来：加密的 sumcheck</h2>
+<p>sumcheck 本身不零知识（prover 发的多项式会泄露 witness 信息）。Longfellow 的做法：prover 发 <code>m<sub>i</sub> + pad<sub>i</sub></code>，pad 预先和 witness 一起被 Ligero 承诺；最后用 Ligero 证明「把 pad 去掉后，这份 transcript 能让 sumcheck verifier 接受」。<span class="cite"><a href="https://datatracker.ietf.org/doc/draft-irtf-cfrg-longfellow/">draft-irtf-cfrg-longfellow §5</a></span></p>
+<p>这和 MPC 里的「用一次性掩码（Beaver 三元组 / 预处理随机数）把在线消息变得均匀随机」是同一种直觉 —— 可以这么类比，但别说它们是同一个东西。</p>
+
+<h2>4. 被问到你不懂的地方怎么办</h2>
+<p>他们可能追问 Reed–Solomon 邻近性测试、Polygero 的多项式挑战、Fiat–Shamir 的 round-by-round 可靠性。你的标准动作：</p>
+<div class="say">I know the shape — Ligero tests that the committed rows are close to Reed–Solomon codewords with a random linear combination, and Polygero replaces the scalar challenge with a low-degree polynomial challenge — but I haven't worked through the proofs. That's exactly the part I'd want to learn from you.</div>
+<p>Polygero 一句话：把 RS 邻近性测试里的<strong>标量</strong>随机组合换成<strong>低次多项式</strong>挑战，在 128-bit 域里做到 127 bit 安全，递归后证明长度是 witness 大小的对数，所有参数在 Lean 4 里机器验证。<span class="cite"><a href="https://eprint.iacr.org/2026/2481">ePrint 2026/2481</a></span></p>
+
+<h2>自测</h2>
+<p class="score"></p>
+<div class="quiz" data-answer="1">
+  <div class="q">Q1. 在 Ligero 里，「verifier 打开几个参与方的 view」对应什么操作？</div>
+  <button class="opt">重新运行一次完整的 sumcheck 协议</button>
+  <button class="opt">打开 RS 码字矩阵中随机的若干列</button>
+  <button class="opt">要求 prover 公开全部 witness 元素</button>
+  <div class="why">RS 编码 = 秘密分享；打开若干列 = 检查若干参与方的 view。Longfellow 打开 132 列。</div>
+</div>
+<div class="quiz" data-answer="2">
+  <div class="q">Q2. sumcheck 第 i 轮 verifier 做的检查是什么？</div>
+  <button class="opt">检查 g_i 的次数恰好等于变量个数 v</button>
+  <button class="opt">检查 g_i 在随机点的值等于原始求和 H</button>
+  <button class="opt">检查 g_i(0)+g_i(1) 等于上一轮的声称值</button>
+  <div class="why">PAZK §4.1：每轮检查 g_i(0)+g_i(1) 与上一轮声称一致，然后发随机 r_i。</div>
+</div>
+<div class="quiz" data-answer="0">
+  <div class="q">Q3. 为什么 Longfellow 的 sumcheck 消息要加 pad？</div>
+  <button class="opt">原始 sumcheck 消息会泄露 witness 信息</button>
+  <button class="opt">pad 可以让 prover 的计算速度提升一倍</button>
+  <button class="opt">pad 用于把 P-256 元素映射到二元域</button>
+  <div class="why">sumcheck 不是零知识的；加 pad 后由 Ligero 证明解密后的 transcript 被接受（draft §5）。</div>
+</div>
+<div class="quiz" data-answer="1">
+  <div class="q">Q4. 被问到 Polygero 的证明细节而你不熟时，最好的回答是？</div>
+  <button class="opt">直接说这部分和你的研究完全无关</button>
+  <button class="opt">讲清直觉，坦白没推过证明，表示想学</button>
+  <button class="opt">凭印象补全细节，避免显得准备不足</button>
+  <div class="why">host 面谈看的是「能不能一起干活」。讲清形状 + 承认边界 + 表达兴趣，比硬撑可信得多。</div>
+</div>
+<div class="recall">
+  <div class="q">回忆练习：不看页面，用三句话向一个只懂 MPC 的同学解释「Longfellow 为什么只让 Ligero 处理很少的约束」。</div>
+  <textarea></textarea>
+  <details><summary>对照要点</summary><p>① 电路本身交给 sumcheck/GKR 去检查，prover 线性时间；② sumcheck 的消息加 pad 后发出，pad 和 witness 一起被 Ligero 承诺；③ Ligero 只需证明「去 pad 后的 transcript 让 verifier 接受」，这是约「电路深度」个二次约束，而不是整张电路。</p></details>
+</div>
+
+<div class="source"><strong>首选原始资料</strong>
+Justin Thaler, <a href="https://people.cs.georgetown.edu/jthaler/ProofsArgsAndZK.pdf"><em>Proofs, Arguments, and Zero-Knowledge</em></a> —— §4.1（sumcheck，30 分钟）和 §4.6（GKR 概览，20 分钟）。时间够再读 §10.5（Ligero / Brakedown 多项式承诺）。</div>
+<p class="ask">不懂就问我 —— 比如「多线性扩展到底是什么」「为什么 RS 码能当秘密分享」，这些我可以当场给你画例子。</p>
+
+<nav class="lessons"><a href="0001-what-longfellow-proves.html">← 上一课</a><a href="0003-ml-dsa-verify-anatomy.html">下一课：拆开 ML-DSA 验签 →</a></nav>
+</main>
+</body>
+</html>

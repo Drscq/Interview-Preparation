@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0001 · Longfellow ZK 在证明什么、为什么快</title>
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<main>
+<header class="lesson">
+  <div class="kicker">Lesson 0001 · 约 20 分钟 · <a href="../index.html">返回目录</a></div>
+  <h1>Longfellow ZK 在证明什么、为什么快</h1>
+  <p class="goal"><strong>这一课的收获：</strong>不看稿、用 2 分钟英文讲清 Longfellow 的「陈述 → 证明系统 → 为什么快 → 部署到哪」。面谈开场他们一定默认你懂这个。</p>
+</header>
+
+<h2>1. 它证明的陈述（statement）</h2>
+<p>手机里的数字驾照 / 身份证遵循 <strong>ISO 18013-5 mdoc</strong>。发证方（issuer）用 <strong>ECDSA P-256</strong> 对一个叫 MSO 的结构签名，MSO 里存着每个属性（比如 <code>age_over_18</code>）的 <strong>SHA-256</strong> 摘要，还有用户手机里的 <strong>device key</strong>。<span class="cite"><a href="https://cic.iacr.org/p/3/1/7">CiC §6.2, Alg. 10</a></span></p>
+<p>Longfellow 让用户证明：</p>
+<ul>
+  <li>我持有一个 MSO，它的 SHA-256 被<strong>发证方公钥</strong>的 ECDSA 签名验证通过；</li>
+  <li>我披露的属性（如 age ≥ 18）的摘要就在这个 MSO 里，且证件在有效期内；</li>
+  <li>本次会话被<strong>我的 device key</strong> 签过名 —— 而 <strong>device 公钥本身是隐藏的</strong>（否则它就成了跨会话追踪用户的标识符）。</li>
+</ul>
+<p>为什么要 ZK：原版 mdoc 每次出示都暴露同一个签名和 device key，<em>"enables the issuer of the MDOC to collaborate with the relying party in order to identify users across sessions."</em><span class="cite"><a href="https://cic.iacr.org/p/3/1/7">CiC §6.2</a></span></p>
+<div class="warn">要点：这个陈述里的密码学是<strong>经典的</strong>（ECDSA + SHA-256）。证明系统本身只依赖 SHA-256 —— 这两件事别混在一起，下面第 5 节和第 0004 课会用到。</div>
+
+<h2>2. 难点：P-256 的域没有好用的单位根</h2>
+<p>高效的证明系统要做大量 NTT / Reed–Solomon 编码，需要域里有大阶的单位根。P-256 的基域没有。以前的做法是在别的域里模拟 P-256 算术，开销 <strong>40–100×</strong>；Longfellow 在<strong>二次扩域</strong>里做 NTT，只花约 <strong>1.5×</strong>；RS 码改成在<strong>等差数列</strong>点上插值，用线性卷积实现。<span class="cite"><a href="https://cic.iacr.org/p/3/1/7">CiC §1</a></span></p>
+<p>SHA-256 那一半放在另一个域 <strong>GF(2<sup>128</sup>)</strong>（承诺时用子域 GF(2<sup>16</sup>)，每个元素只占 16 bit），用加性 FFT。两个域里的同一份 witness 用<strong>随机 MAC</strong> 证明一致。<span class="cite"><a href="https://cic.iacr.org/p/3/1/7">CiC §1, §3.3</a></span></p>
+<p class="ask">→ 这正是 Matteo Frigo 的老本行：他是 FFTW 的作者（1999 Wilkinson Prize）。聊到 NTT / 加性 FFT 时可以自然地提一句。</p>
+
+<h2>3. 配方：sumcheck 跑电路，Ligero 只管「承诺 + 少量约束」</h2>
+<p>他们自己的一句话版本（IETF 126 slide 7）：<em>"Follows the oldest ZK 'recipe' from BGGHKMR88. Run an IP → Transcript. Commit to Transcript → Com. ZK for 'Com contains T and IP-verifier(T)=1'. IP: Sumcheck. Commit/ZK: Ligero (IOP, only uses SHA256.)"</em><span class="cite"><a href="https://datatracker.ietf.org/meeting/126/materials/slides-126-cfrg-longfellow-zk-00">IETF 126 slides</a></span></p>
+<figure>
+<svg viewBox="0 0 640 170" width="100%" role="img" aria-label="Longfellow pipeline">
+  <rect x="5" y="40" width="140" height="60" rx="6" fill="none" stroke="currentColor"/>
+  <text x="75" y="65" text-anchor="middle" font-size="13">1. 承诺</text>
+  <text x="75" y="85" text-anchor="middle" font-size="11">witness w + pad</text>
+  <rect x="170" y="40" width="160" height="60" rx="6" fill="none" stroke="currentColor"/>
+  <text x="250" y="65" text-anchor="middle" font-size="13">2. 跑 sumcheck</text>
+  <text x="250" y="85" text-anchor="middle" font-size="11">每条消息 m_i + pad_i 发出</text>
+  <rect x="355" y="40" width="280" height="60" rx="6" fill="none" stroke="currentColor"/>
+  <text x="495" y="65" text-anchor="middle" font-size="13">3. Ligero 证明</text>
+  <text x="495" y="85" text-anchor="middle" font-size="11">「解密后的 transcript 让 verifier 接受」</text>
+  <line x1="145" y1="70" x2="170" y2="70" stroke="currentColor" marker-end="url(#a)"/>
+  <line x1="330" y1="70" x2="355" y2="70" stroke="currentColor" marker-end="url(#a)"/>
+  <defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+  <text x="320" y="140" text-anchor="middle" font-size="12">Ligero 只需处理约 d 个二次约束（d = 电路深度，通常 &lt; 20），而不是整张电路</text>
+</svg>
+<figcaption>CiC Protocol 2.5 的骨架。sumcheck prover 是 O(C) 时间；Ligero 承诺的只有 |w| + ℓ 个元素。</figcaption>
+</figure>
+<p>为什么这比「直接用 Ligero」快：<em>"Our formulation only requires Ligero to handle d quadratic constraints where d is the depth of the original circuit (typically a small integer &lt; 20), whereas the original circuit may contain thousands of multiplications."</em><span class="cite"><a href="https://cic.iacr.org/p/3/1/7">CiC §2.3</a></span>（细节在 <a href="0002-ligero-sumcheck-through-mpc.html">第 0002 课</a>。）</p>
+
+<h2>4. 数字（背下面这几个就够）</h2>
+<table>
+<tr><th>测什么</th><th>Mac M4</th><th>Pixel 9</th><th>出处</th></tr>
+<tr><td>ECDSA 签名持有证明（prover）</td><td>20.4 ms → <strong>16.7 ms</strong>（2026）</td><td>53.3 ms</td><td><a href="https://cic.iacr.org/p/3/1/7">CiC Tab. 11</a>；<a href="https://datatracker.ietf.org/meeting/126/materials/slides-126-cfrg-longfellow-zk-00">IETF 126 slide 14</a></td></tr>
+<tr><td>mdoc age-over-18（prover / verifier）</td><td>294 / 142 ms</td><td>931 / 508 ms</td><td><a href="https://cic.iacr.org/p/3/1/7">CiC Tab. 13</a></td></tr>
+<tr><td><strong>ML-DSA-44 签名持有证明</strong></td><td><strong>858 ms</strong></td><td>—</td><td><a href="https://datatracker.ietf.org/meeting/126/materials/slides-126-cfrg-longfellow-zk-00">IETF 125/126 slide 15</a></td></tr>
+</table>
+<p>mdoc 里最贵的是什么？<em>"The most expensive part of the proof generation concerns the SHA256 hash of the MSO."</em><span class="cite"><a href="https://cic.iacr.org/p/3/1/7">CiC §6</a></span> —— 哈希是大头，这个规律到 ML-DSA 依然成立。</p>
+
+<h2>5. 部署与时间线</h2>
+<ul>
+  <li>2025-04-29 Google Wallet 宣布集成 ZKP 做年龄验证；同日建 repo。<span class="cite"><a href="https://blog.google/products-and-platforms/platforms/google-pay/google-wallet-age-identity-verifications/">blog</a></span></li>
+  <li>2025-07-03 开源；2025-11 IETF 124 slide：<em>"Deployed in Google Wallet, used to authenticate to Bumble"</em>。<span class="cite"><a href="https://datatracker.ietf.org/meeting/124/materials/slides-124-dispatch-longfellow-zero-knowledge-credentials-00">IETF 124</a></span></li>
+  <li>欧盟年龄验证技术规范把它列为实验特性。</li>
+  <li><strong>2026-09-02</strong> abhi 署名的博客：捐给 Linux Foundation Europe 下的 <strong>Post-Quantum Cryptography Alliance</strong>，<em>"adopt it as a quantum-safe standard for digital identity applications"</em>。全文<strong>没提 ML-DSA</strong>。<span class="cite"><a href="https://blog.google/products-and-platforms/platforms/google-pay/zero-knowledge-proof-library-linux-foundation/">blog</a></span></li>
+  <li><strong>2026-10-14</strong> Polygero（ePrint 2026/2481）= Longfellow "version 8" 的新 RS 邻近性测试；<strong>2026-10-19</strong> CFRG 采纳为 <code>draft-irtf-cfrg-longfellow-00</code>。</li>
+</ul>
+<p>「quantum-safe」指的是什么？他们的措辞是 <em>"transparent, hash-based"</em> 证明系统，<em>"for proving statements about credentials signed with legacy algorithms (ECDSA, SHA-256)"</em>，以及 <em>"Deploying (new) ECC crypto in 2026 is not responsible."</em><span class="cite"><a href="https://datatracker.ietf.org/meeting/126/materials/slides-126-cfrg-longfellow-zk-00">IETF 126 slides 4–5</a></span> → 证明系统是哈希的；<strong>被证明的签名</strong>要后量子，就得换成 ML-DSA —— 这就是你的切入点。</p>
+
+<div class="say">Longfellow lets a wallet prove it holds an mdoc credential — an ECDSA P-256 signature over a SHA-256 digest of the MSO — and reveal only one attribute, with the device key hidden so presentations can't be linked. The trick is the old recipe: run sumcheck over the layered circuit, commit to a padded transcript, and use Ligero to show the committed transcript makes the verifier accept, so Ligero only sees a handful of quadratic constraints. The P-256 half uses an NTT in a quadratic extension, and SHA-256 lives in GF(2^128). The proof system only assumes SHA-256, which is why it's a natural base for post-quantum credentials — the open part is the statement: the issuer signature has to become ML-DSA.</div>
+
+<h2>自测</h2>
+<p class="score"></p>
+<div class="quiz" data-answer="2">
+  <div class="q">Q1. mdoc 出示时，device 公钥为什么要藏在 witness 里？</div>
+  <button class="opt">因为 device 公钥太长传输太慢</button>
+  <button class="opt">因为 ECDSA 验签必须使用私钥</button>
+  <button class="opt">因为公开它就能跨会话追踪用户</button>
+  <div class="why">Device 公钥每次都一样，公开就成了追踪标识符（CiC §5.3, §6.2）。</div>
+</div>
+<div class="quiz" data-answer="0">
+  <div class="q">Q2. Longfellow 中 Ligero 实际要处理的约束大约有多少？</div>
+  <button class="opt">约电路深度个二次约束，通常少于二十</button>
+  <button class="opt">与电路乘法门数量相同的全部二次约束</button>
+  <button class="opt">与 SHA-256 轮数相同的六十四个线性约束</button>
+  <div class="why">sumcheck 处理电路本身；Ligero 只证明「被承诺的 transcript 让 sumcheck verifier 接受」，约 d 个二次约束（CiC §2.3）。</div>
+</div>
+<div class="quiz" data-answer="1">
+  <div class="q">Q3. P-256 那一半为什么不能直接做标准 NTT？</div>
+  <button class="opt">P-256 基域的特征是二，无法定义乘法</button>
+  <button class="opt">P-256 基域缺少所需的大阶单位根</button>
+  <button class="opt">P-256 基域太小，无法达到安全参数</button>
+  <div class="why">没有单位根 → 他们在二次扩域里做 NTT，约 1.5× 开销（CiC §1）。</div>
+</div>
+<div class="quiz" data-answer="2">
+  <div class="q">Q4. 2026-09 那篇 PQCA 博客说 Longfellow 是 "quantum-safe"，最准确的理解是？</div>
+  <button class="opt">它已经把 mdoc 签名换成了 ML-DSA</button>
+  <button class="opt">它证明了 ECDSA 可以抵抗量子攻击</button>
+  <button class="opt">证明系统基于哈希，但被证签名仍是经典</button>
+  <div class="why">博客没提 ML-DSA；IETF slide 用的是 "transparent, hash-based" 和 "legacy algorithms (ECDSA, SHA-256)"。</div>
+</div>
+<div class="recall">
+  <div class="q">回忆练习：合上页面，用英文把「陈述 → 配方 → 两个域 → 一个数字」说一遍（录音或写下来），再对照上面的绿色框。</div>
+  <textarea placeholder="写在这里，或者对着手机录一遍"></textarea>
+</div>
+
+<div class="source"><strong>首选原始资料</strong>
+Frigo &amp; shelat, <a href="https://cic.iacr.org/p/3/1/7"><em>Anonymous credentials from ECDSA</em>（CiC 2026 版）</a> —— 读 §1、§2.3、§6.2 和 Table 11/13 即可（40 分钟）。再扫一遍 <a href="https://datatracker.ietf.org/meeting/126/materials/slides-126-cfrg-longfellow-zk-00">IETF 126 slides "libZK: PQ zero knowledge"</a>（10 分钟）—— 这是他们俩今年对外讲的版本。</div>
+<p class="ask">有不清楚的地方，直接问我（你的 Claude 老师）—— 尤其是 sumcheck 那一段，第一次读通常要问两三个问题。</p>
+
+<nav class="lessons"><span></span><a href="0002-ligero-sumcheck-through-mpc.html">下一课：用 MPC 的眼光看 Ligero 和 sumcheck →</a></nav>
+</main>
+</body>
+</html>

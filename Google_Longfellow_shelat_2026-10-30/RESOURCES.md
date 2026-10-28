@@ -1,0 +1,50 @@
+# Longfellow ZK interview prep Resources
+
+## Knowledge
+
+- [Frigo & shelat, "Anonymous Credentials from ECDSA", CiC v3 n1 (PDF)](https://cic.iacr.org/p/3/1/7) — The Longfellow paper: sumcheck + Ligero via an encrypted transcript, NTT in a quadratic extension of the P-256 field, additive FFT over GF(2^128), the two-field MAC, ECDSA/SHA-256/CBOR circuits, benchmarks on Pixel 9, iPhone 15+ and M4. Use for: the architecture slide, exact performance numbers, and the quantum-prover soundness clause in Theorem 4.
+- [ePrint 2024/2010](https://eprint.iacr.org/2024/2010) and [its version history](https://eprint.iacr.org/archive/versions/2024/2010) — Abstract plus 3 PDF versions; the Dec-2024 version says "60ms / 1.2 seconds", the current one says "≈20ms / a few hundred ms". Use for: citing the paper, and showing you know how the numbers evolved.
+- [draft-irtf-cfrg-longfellow-00 (CFRG RG document, 19 Oct 2026)](https://datatracker.ietf.org/doc/draft-irtf-cfrg-longfellow/) — The normative spec: Ligero commit/prove/verify, the padded sumcheck, Fiat–Shamir (SHA-256 + AES-256-CTR), field IDs, profiles (p256,132,7) and (GF(2^128),132,7), test vectors. Use for: precise protocol wording and showing you read the spec. It replaces [draft-google-cfrg-libzk](https://datatracker.ietf.org/doc/draft-google-cfrg-libzk/).
+- [longfellow-zk GitHub repo](https://github.com/longfellow-zk/longfellow-zk) — C++ library, Rust reference, Lean `formal/` development, reviews page. Use for: the facts that matter most for the pitch, in `lib/circuits/tests/pq/ml_dsa/` (ML-DSA-44/65 over F_{q^6}) and `lib/circuits/tests/sha3/` (an experimental Keccak circuit that slices every 6 rounds).
+- [Longfellow security reviews page](https://github.com/longfellow-zk/longfellow-zk/blob/main/docs/content/en/docs/reviews.md) — Trail of Bits (2025-08), the ISRG under-constraint bug in the MDOC circuit, and the Ligero-team academic analysis (2025-12). Use for: showing awareness that circuit bugs, not the proof system, have been the real failures.
+- [Longfellow formal/README](https://github.com/longfellow-zk/longfellow-zk/blob/main/formal/README.md) — Lean bounds: 116-bit V1, 117-bit V2; "version 8 uses Polygero"; states what is not yet verified. Use for: questions about formal verification, which is shelat's stated current interest.
+- [Polygero, ePrint 2026/2481](https://eprint.iacr.org/2026/2481) — Frigo–shelat Oct 2026: polynomial (not scalar) batching challenges for RS proximity testing, an MDS-after-deletion theorem, recursion to logarithmic proof size, every parameter Lean-certified, 127-bit security in a 128-bit field. Use for: showing you read their newest work; Table 1 proof sizes.
+- [Google blog, 2 Sep 2026: donation to the PQCA (byline "Abhi Shelat, Researcher, Google Cloud")](https://blog.google/products-and-platforms/platforms/google-pay/zero-knowledge-proof-library-linux-foundation/) — The "quantum-safe standard for digital identity applications" framing. Use for: quoting the PQ framing accurately; it never mentions ML-DSA.
+- [PQCA Longfellow project page](https://pqca.org/projects/longfellow/) — Confirms Longfellow sits beside Open Quantum Safe and PQ Code Package. Use for: governance context.
+- [Google Wallet age/ID blog, 29 Apr 2025](https://blog.google/products-and-platforms/platforms/google-pay/google-wallet-age-identity-verifications/) and [open-source blog, 3 Jul 2025](https://blog.google/innovation-and-ai/technology/safety-security/opening-up-zero-knowledge-proof-technology-to-promote-privacy-in-age-assurance/) — Deployment and open-source timeline (Bumble, EUDI wallet). Use for: the deployment slide.
+- [IETF 126 CFRG slides "libZK: PQ zero knowledge"](https://datatracker.ietf.org/meeting/126/materials/slides-126-cfrg-longfellow-zk-00) and [minutes](https://datatracker.ietf.org/doc/minutes-126-cfrg-202607220700/) — The ML-DSA-44 PoP in 858 ms on M4; "Deploying (new) ECC crypto in 2026 is not responsible"; shelat: "ML-DSA is more difficult to do." Use for: knowing exactly where their PQ effort stands.
+- [IETF 125 CFRG slides](https://datatracker.ietf.org/meeting/125/materials/slides-125-cfrg-longfellow-zk-00) and [IETF 124 DISPATCH slides](https://datatracker.ietf.org/meeting/124/materials/slides-124-dispatch-longfellow-zero-knowledge-credentials-00) — The first ML-DSA number (Mar 2026); "Deployed in Google Wallet, used to authenticate to Bumble"; ISRG's second implementation. Use for: the timeline.
+- [FIPS 204 (ML-DSA), Aug 2024](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.204.pdf) — Alg. 3/8 Verify, Alg. 29 SampleInBall, Alg. 30/32 RejNTTPoly/ExpandA (SHAKE128), Table 1 parameters, App. C Table 3 XOF caps (894 / 221 bytes). Use for: the "where the Keccak goes" slide.
+- [GordieHowe, ePrint 2026/2615 (Sharp & Grubbs, 23 Oct 2026)](https://eprint.iacr.org/2026/2615) — A multi-field ZK compiler; ML-DSA-44 PoP in 87.3 ms vs 6.1 s for an optimized Longfellow baseline; diagnoses Longfellow's per-chunk MAC cost (51% for ML-DSA-44) and the unbatched Keccak GKR; counts 96 + 10 Keccak permutations. Use for: knowing the strongest competitor before the call, and grounding the Keccak-dominance claim in data.
+- [Nowhere Man, ePrint 2026/2472 (NTT, S&P 2027)](https://eprint.iacr.org/2026/2472) — ML-DSA device binding built on Longfellow; splits verification into a bit part and a lattice part; reports 850–923 ms for Longfellow's test PoP. Use for: the hidden-device-key setting and decomposition ideas.
+- [Baum & Beckmann edaBitE, ePrint 2026/2473](https://eprint.iacr.org/2026/2473) — VOLEitH proof of an unmodified ML-DSA signature with a binary↔prime consistency check; about 1 MB, under 1 s. Use for: the alternative to Longfellow's MAC bridge.
+- [Policharla–Westerbaan–Faz-Hernández–Wood, ePrint 2023/414](https://eprint.iacr.org/2023/414) — zkDilithium + STARK for PQ Privacy Pass (85–175 KB, 0.3–5 s). Use for: the "modify the signature" baseline that Longfellow-style work avoids.
+- [Argo et al., "Practical Post-Quantum Signatures for Privacy", ePrint 2024/131 (CCS 2024)](https://eprint.iacr.org/2024/131) — A lattice signature with efficient protocols, credentials under 80 KB (now about 54 KB). Use for: the bespoke-lattice alternative.
+- [Ligero full version, ePrint 2022/1608](https://eprint.iacr.org/2022/1608) — MPC-in-the-head over interleaved RS codes, square-root communication, hash-only. Use for: Ligero background and its relationship to MPC (your SHIELD bridge).
+- [Thaler, Proofs, Arguments, and Zero-Knowledge (PDF)](https://people.cs.georgetown.edu/jthaler/ProofsArgsAndZK.pdf) — §4.1 sumcheck (Prop. 4.1, soundness vd/|F|), §4.6 GKR, §10.5 Ligero/Brakedown commitments. Use for: precise one-paragraph definitions.
+- [Bristol Fashion MPC circuits](https://nigelsmart.github.io/MPC-Circuits/) — Keccak-f: 38,400 AND, 115,200 XOR; SHA-256: 22,573 AND. Use for: the Boolean-cost numbers on the slide.
+- [FLORAM, ePrint 2017/827](https://eprint.iacr.org/2017/827) and DKLs ([2018/499](https://eprint.iacr.org/2018/499), [2019/523](https://eprint.iacr.org/2019/523), [2023/765](https://eprint.iacr.org/2023/765)) — shelat's ORAM-from-FSS and threshold ECDSA work. Use for: connecting HERO (ORAM) and SHIELD/FLOCK (threshold signing) to his past work.
+- [abhi shelat homepage](https://shelat.khoury.northeastern.edu/) and [bio](https://shelat.khoury.northeastern.edu/bio/) — Current focus: "formally verify this protocol's security proof, as well as its implementation." Use for: matching your questions to his interests.
+- [Simons talk, "The modern anonymous credential (how ZK landed in Google Wallet)"](https://www.youtube.com/watch?v=S0sSTMDO2z8) and [RWC 2025 talk](https://www.youtube.com/watch?v=G52iNwkrF8E) — shelat's own narrative. Use for: picking up his vocabulary and framing before the call.
+- [FFTW](https://www.fftw.org/) and [Cilk-5 PLDI'98 abstract](https://www.fftw.org/~athena/abstracts/abstract17.html) — Frigo's background (FFTW3 paper, Wilkinson Prize 1999, Cilk-5 most-influential-paper award). Use for: rapport, and understanding why Longfellow is FFT-engineering heavy.
+
+## Wisdom (Communities)
+
+- [IETF CFRG mailing list archive](https://mailarchive.ietf.org/arch/browse/cfrg/) — Where Longfellow is being standardized (draft-irtf-cfrg-longfellow) and where Fiat–Shamir and PQ debates happen.
+- [longfellow-zk GitHub Issues/PRs](https://github.com/longfellow-zk/longfellow-zk/issues) — The README says "Our discussions occur under Issues"; PR #190 (multi-proof transcript forking) has shelat's comments.
+- [Post-Quantum Cryptography Alliance — Get Involved](https://pqca.org/get-involved/) — The new home of Longfellow under Linux Foundation Europe: mailing lists and community meetings.
+- [ZKProof community standards initiative](https://zkproof.org/) — Academic/industry ZK standardization workshops and reference documents.
+- [ZK Hack](https://zkhack.dev/) — ZK practitioner community: puzzles, study groups, events.
+- [Zero Knowledge Podcast](https://zeroknowledge.fm/) — Practitioner interviews on proof systems (Binius, sumcheck, lookups).
+- [W3C Credentials Community Group archive](https://lists.w3.org/Archives/Public/public-credentials/) — The digital-credential standards community; hosted a session on "Anonymous Credentials from ECDSA".
+
+## Gaps
+
+- No dated Google primary source saying ZKP age verification went live in Google Wallet production (only "integrating", Apr 2025, and "Deployed ... Bumble" on IETF slides, Nov 2025).
+- No Google-reported MDOC proof size; the paper's Table 13 has times only.
+- No public description of Google intern or Student Researcher projects in the Longfellow group.
+- No RWC 2026 or NIST talk by shelat or Frigo found.
+- Frigo's Google job title is not public in the sources found.
+- No published Keccak-f permutation count for ML-DSA-65/87 verification; the dossier's numbers for those are DERIVED (ML-DSA-44 is confirmed by GordieHowe).
+- YouTube talk contents and the Trail of Bits / Ligero review PDFs were not read in full.
+- Unknown whether Google's internal ML-DSA circuit has moved beyond the public `tests/pq/ml_dsa` code (last public change 2026-07-13).

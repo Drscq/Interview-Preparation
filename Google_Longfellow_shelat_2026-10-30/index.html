@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Longfellow 面谈备战</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+<header class="lesson">
+  <div class="kicker">2026-10-30（周五）11:00 ET · Zoom · abhi shelat + Matteo Frigo</div>
+  <h1>Longfellow ZK × 后量子凭证：面谈备战</h1>
+  <p class="goal">目标：让他们在 PhD SWE intern 池里点名要你，并当场对齐一个 Summer 2027 项目方向。详见 <a href="MISSION.md">MISSION.md</a>。</p>
+</header>
+
+<h2>最重要的一条</h2>
+<p>Google <strong>已经</strong>在 Longfellow 里有 ML-DSA 验签电路（IETF 126 公开数字：ML-DSA-44 858 ms），本月还有三篇论文拿它当基线。你冷邮件里的「主要是 Keccak 问题」是对的，但不新。<strong>面谈的价值在于：你能帮他们解决他们自己点名的开放问题</strong>（隐藏公钥、Keccak 布局、跨域连接、规范一致性、发证侧私钥）。</p>
+
+<h2>课程（按顺序）</h2>
+<ol>
+  <li><a href="lessons/0001-what-longfellow-proves.html">Longfellow ZK 在证明什么、为什么快</a> · 20′</li>
+  <li><a href="lessons/0002-ligero-sumcheck-through-mpc.html">用 MPC 的眼光看 Ligero 和 sumcheck</a> · 25′</li>
+  <li><a href="lessons/0003-ml-dsa-verify-anatomy.html">拆开 ML-DSA 验签：哪些是 Keccak，哪些是格算术</a> · 30′ ⭐ 最可能被深挖</li>
+  <li><a href="lessons/0004-landscape-and-positioning.html">战场现状：谁在做 ML-DSA-in-ZK，你站在哪</a> · 20′</li>
+  <li><a href="lessons/0005-interview-playbook.html">面谈剧本与项目提案</a> · 30′ + 口头演练</li>
+</ol>
+
+<h2>速查</h2>
+<ul>
+  <li><a href="reference/cheatsheet.html">速查表</a>：数字、原话、口径（面谈时开在第二屏）</li>
+  <li><a href="reference/glossary.html">术语表</a></li>
+  <li><a href="slides/longfellow-chat.pdf">Beamer slides</a>（共享屏幕用，源码 <code>slides/longfellow-chat.tex</code>）</li>
+  <li><a href="RESOURCES.md">RESOURCES.md</a>：原始资料清单 · <a href="research/dossier.md">research/dossier.md</a>：带引文的完整调研</li>
+</ul>
+
+<h2>两天计划</h2>
+<table>
+<tr><th>时间</th><th>做什么</th></tr>
+<tr><td>周三晚</td><td>第 0001、0002 课；读 CiC 论文 §1、§2.3、§6.2（40′）</td></tr>
+<tr><td>周四上午</td><td>第 0003 课 + 读 FIPS 204 Alg. 8 和 <code>ml_dsa_circuit.h</code> 头注释；第 0004 课 + IETF 126 纪要</td></tr>
+<tr><td>周四下午</td><td>第 0005 课；对着 slide 大声讲两遍（自我介绍 ≤ 70 秒、项目 A ≤ 90 秒）</td></tr>
+<tr><td>周四晚</td><td><strong>grilling 模拟面试</strong>（我扮 abhi + Matteo），之后补漏</td></tr>
+<tr><td>周五 10:30</td><td>只看速查表；测试 Zoom、共享屏幕、麦克风；10:58 进会议室开 waiting room</td></tr>
+<tr><td>周五会后 24h 内</td><td>感谢信 + 一页 sketch（按会上他们最感兴趣的项目写）</td></tr>
+</table>
+<p class="ask">任何一课看不懂，直接问我。准备好了就说「开始 grill」。</p>
+</main>
+</body>
+</html>
