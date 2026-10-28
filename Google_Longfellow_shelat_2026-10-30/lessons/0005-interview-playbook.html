@@ -33,7 +33,7 @@
 <h3>A. 隐藏公钥的 ML-DSA 签名持有证明（主推）</h3>
 <p><strong>问题：</strong>device binding / issuer hiding 要求公钥隐藏，ExpandA 和 tr 必须进电路（ML-DSA-44 约 96 + 10 次额外 Keccak 置换）。现有测试电路假设公钥公开。<br>
 <strong>做什么：</strong>把 ExpandA（SHAKE128 拒绝采样）和 tr 放进电路；研究 Keccak 放在哪个域、怎么批量化、跨域连接怎么做最便宜；对比 858 ms 基线。<br>
-<strong>第一周：</strong>跑通 <code>BM_MLDSA44SigProver</code>，按子电路（SHAKE、SampleInBall、NTT、UseHint、范围检查）做 profile，确认时间和证明大小花在哪。<br>
+<strong>第一周：</strong>跑通 <code>BM_MLDSA44ZK_Prove</code>，按子电路（SHAKE、SampleInBall、NTT、UseHint、范围检查）做 profile，确认时间和证明大小花在哪。<br>
 <strong>成功标准：</strong>一个隐藏公钥的 ML-DSA-44 电路 + 一张成本拆解表 + 一份写给 CFRG / 论文的技术报告。<br>
 <strong>你的证据：</strong>Keccak / SampleInBall 的布尔电路你在 SHIELD 里做过；daBits 是跨域搬运的 MPC 版本。</p>
 
@@ -58,7 +58,8 @@
   <li>For the internship itself: would this go through the PhD SWE intern pool I'm already in, or the Student Researcher track? Who would be the host?</li>
 </ol>
 
-<h2>5. 工作授权 —— 标准说法</h2>
+<h2>5. 工作授权 —— 不主动提</h2>
+<div class="warn"><strong>2026-10-28 决定：这次不谈 OPT / 时间线。</strong>对方还没表态感兴趣，第一次见面不需要。下面这段只在对方<strong>直接问</strong>时备用。</div>
 <div class="say">I'm a returning student — I graduate in June 2028 — and I'm authorized to work in the US through OPT for the summer, so no sponsorship is needed. One practical note: my school processes the summer OPT once I have an offer letter, so an earlier offer makes the timeline comfortable.</div>
 <p>背景（自己知道就行，别展开）：VT 的 CPT 通道已关；走 pre-completion OPT，VT 要求先有 offer letter 才出 I-20；递 I-765 后需要 premium processing（30 天）才赶得上暑期开工；2027-04 之后才拿到 offer 基本来不及。详见 <code>Internship2027/reference/visa-constraints.md</code>。</p>
 <div class="warn">只在对方问到授权 / 时间线时说；不要主动大段解释签证。表单类问题：legally authorized = Yes，require sponsorship = No。</div>

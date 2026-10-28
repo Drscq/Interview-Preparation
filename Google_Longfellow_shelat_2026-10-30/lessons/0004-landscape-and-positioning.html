@@ -45,6 +45,7 @@
 <p>(c) 这一行值得多想一秒：SHIELD 里的 <strong>daBits</strong> 就是「同一个随机比特在算术域和二元域里各有一份 share」，用来在 SPDZ 和 WRK17 之间搬数据。Longfellow 里两个证明系统之间用随机 MAC 证明 witness 一致，是同一个「跨域搬运」问题的 ZK 版本。可以把它说成一个你想学的类比，不要说成你已经有解法。</p>
 
 <h2>4. 怎么谈竞品（话术）</h2>
+<div class="warn"><strong>2026-10-28 决定：面谈里不主动提这些竞品。</strong>第一次见面，重点放在你做过什么、和他们有什么连接。下面的话术只在<strong>他们自己提起</strong>时使用。</div>
 <div class="say">I saw GordieHowe and the Nowhere Man paper this month — both use your ML-DSA circuit as the baseline, which I read as a sign that Longfellow is the reference everyone measures against. What I found interesting is that they both point at the same two costs: Keccak layout and the cross-field link. How do you think about those trade-offs for Longfellow, given that you care about a standardized, auditable spec?</div>
 <p>原则：① 主动提一次，显得你做了功课；② 用问题收尾，把话语权交给他们；③ 不复述「70× 更快」这种刺耳的数字，除非他们自己提；④ 他们提到时，承认 GordieHowe 的数字，然后问部署约束（标准化、审计、Rust 重写、形式化）—— 这些才是 Google 在乎、而论文不在乎的。</p>
 <div class="warn">别说：「GordieHowe 证明了 Longfellow 太慢」「你们的 Keccak 电路设计有问题」。Google 的电路是标着 experimental 的测试电路，论文拿来对比的是它。</div>

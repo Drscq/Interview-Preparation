@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0006 · 你邮件里那句话，和他们已经写好的 ML-DSA 电路</title>
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<main>
+<header class="lesson">
+  <div class="kicker">Lesson 0006 · 约 30 分钟（含读源码 15 分钟） · <a href="../index.html">返回目录</a></div>
+  <h1>你邮件里那句话，和他们已经写好的 ML-DSA 电路</h1>
+  <p class="goal"><strong>这一课的收获：</strong>① 能用自己的话解释冷邮件里那个观察（abhi 正是因为它回的信）；② 亲手读过他们的 <code>ml_dsa_circuit.h</code> 头注释和主函数，面谈里可以<strong>诚实地</strong>说 "I looked at your ML-DSA test circuit"。建议在第 <a href="0003-ml-dsa-verify-anatomy.html">0003</a> 课之后读。</p>
+</header>
+
+<h2>1. 你在邮件里到底说了什么</h2>
+<p>原文（10-28 发给 abhi）：</p>
+<blockquote><em>"If credential issuers eventually sign with ML-DSA, proving signature verification in zero knowledge becomes mostly a Keccak problem. I saw the same cost structure from the MPC side: in SHIELD ... the Boolean work (Keccak, decomposition, norm checks) dominates, while polynomial arithmetic is under 0.2% of online computation. I would be curious whether SHAKE is also the bottleneck you expect for ML-DSA in Longfellow."</em></blockquote>
+<p>拆成三步：</p>
+<ol>
+  <li><strong>场景。</strong>今天的数字证件由发证方用 ECDSA 签名，Longfellow 让持有人在 ZK 里证明「我有一个有效签名」。等发证方换成后量子签名 ML-DSA，持有人要在 ZK 里证明的就变成「我有一个有效的 <strong>ML-DSA</strong> 签名」—— 也就是在电路里跑一遍 ML-DSA 验签。</li>
+  <li><strong>判断。</strong>ML-DSA 验签由两类操作组成：<strong>格算术</strong>（NTT、多项式乘法，都是 mod q 的加法和乘法）和<strong>哈希</strong>（SHAKE，也就是 Keccak，全是比特级的 XOR / AND / 移位）。如果证明系统的域就是 mod q，格算术几乎是「原生」的、很便宜；Keccak 则要把每一个比特操作都变成约束，很贵。所以成本主要落在 Keccak 上。</li>
+  <li><strong>你的证据。</strong>SHIELD 把 ML-DSA <strong>签名</strong>放进 MPC：多项式乘法在 share 上是线性的（几乎免费），而 Keccak、分解、范围检查要用混淆电路一门一门地算。实测 Keccak 两步 341 Mcycles，全部多项式乘法只有 0.70 Mcycles。MPC 和 ZK 是两种不同的东西，但「线性的便宜、比特级非线性的贵」这个规律在两边都成立。</li>
+</ol>
+<div class="say">My point in the email was simple: once the issuer signs with ML-DSA, the holder has to prove ML-DSA verification, and verification is lattice arithmetic plus SHAKE. The lattice arithmetic is cheap if your field is mod q; the SHAKE part is bit-level and that's where the cost goes. I saw exactly that split from the MPC side in SHIELD — Keccak was 341 Mcycles online and all the polynomial multiplication together was under one.</div>
+
+<h2>2. 他们已经有了：Longfellow 的 ML-DSA 测试电路</h2>
+<p>位置：<a href="https://github.com/longfellow-zk/longfellow-zk/tree/main/lib/circuits/tests/pq/ml_dsa"><code>lib/circuits/tests/pq/ml_dsa/</code></a>，2026-02 首次提交。他们在 IETF 125 / 126 上报过这个电路的数字：<strong>ML-DSA-44 签名持有证明 858 ms（Mac M4）</strong>。<span class="cite"><a href="https://datatracker.ietf.org/meeting/126/materials/slides-126-cfrg-longfellow-zk-00">IETF 126 slide 15</a></span></p>
+<p>所以你邮件里的观察对他们<strong>不是新闻</strong> —— 他们自己就在做这件事。这反而是好事：你们讲的是同一个问题，abhi 才会说 "let's meet"。</p>
+
+<h3>头注释说了什么（<a href="https://github.com/longfellow-zk/longfellow-zk/blob/main/lib/circuits/tests/pq/ml_dsa/ml_dsa_circuit.h"><code>ml_dsa_circuit.h</code></a> 第 30–60 行）</h3>
+<pre>Zero-Knowledge circuit implementation for ML-DSA signature verification.
+...
+Core Verification Pipeline (assert_valid_signature_on_mu):
+  1. SampleInBall: Reconstructs the challenge polynomial 'c' from 'c_tilde'
+     using a constrained Fisher-Yates shuffle over SHAKE256 output.
+  2. Matrix-Vector Multiplication: Computes w'_approx = A*z - c*t1*2^d
+     in the NTT domain.
+  3. UseHint: ... optimized "Interval Shifting" technique ...
+  4. Range Checks: ... ||z||_infty &lt; gamma_1 - beta.
+  5. Hash Commitment: Encodes w'_1 and asserts that
+     SHAKE256(mu || encoded_w'_1) == c_tilde.</pre>
+<p>对照 <a href="0003-ml-dsa-verify-anatomy.html">第 0003 课</a> 的 FIPS 204 Algorithm 8：第 8、9、10、12、13 行都在电路里；<strong>第 5 行 ExpandA、第 6 行 tr = H(pk)、第 7 行 μ 不在</strong>。</p>
+
+<h3>谁是公开的、谁是秘密的</h3>
+<p>在测试文件 <code>ml_dsa_circuit_test.cc</code> 里构造完整电路时，顺序是：<code>pk-&gt;input()</code> → <code>Q.private_input()</code> → 签名、witness、μ。<code>private_input()</code> 之前的是公开输入，之后的是私有的。所以这个电路证明的陈述是：</p>
+<p style="text-align:center"><em>「存在一个签名 (c̃, z, h)，在<strong>公开</strong>的公钥 (Â, NTT(t₁), tr) 下，对某个<strong>秘密</strong>的 μ 验证通过。」</em></p>
+<ul>
+  <li>Â 直接作为输入给出（已经展开好的矩阵），所以 ExpandA 的 96 次 Keccak 不在电路里 —— 前提是公钥可以公开。</li>
+  <li>μ 是私有输入，电路没有检查它确实是由 tr 和消息算出来的（GordieHowe 论文也独立指出了这一点）。</li>
+  <li>小细节：头注释里把签名和 μ 也列在 "Public Inputs" 下，但测试代码实际把它们放在 <code>private_input()</code> 之后。以代码为准。</li>
+</ul>
+<p>整个电路在 <code>Fp24_6</code> 上：ML-DSA 的模数 q = 8380417 的<strong>六次扩域</strong>（<code>kBeta = 7</code>）。格算术是原生的；扩域是为了让 sumcheck 有足够的可靠性（误差 ≤ v·d/|F|，域要够大）。SHAKE 也在这个域里用比特电路实现，每 6 轮 commit 一次状态，标着 "DO NOT USE IN PRODUCTION"。</p>
+
+<h2>3. 两个值得记住的电路技巧（面谈里能聊）</h2>
+<h3>技巧 1：SampleInBall 不在电路里「算」，只「检查」</h3>
+<p>SampleInBall 是一个带拒绝采样的 Fisher–Yates 洗牌，顺序执行在电路里很贵。他们的做法：prover 直接告诉电路「第 s 个被接受的样本在 SHAKE 输出的第几个字节」，电路只检查三件事 —— 该字节确实等于样本值；样本在合法范围内；中间跳过的字节确实都应该被拒绝。洗牌过程也是并行验证而不是顺序模拟。（源码第 540–560 行注释）</p>
+<h3>技巧 2：UseHint 只用一次范围检查</h3>
+<p>FIPS 的 UseHint 要按 r₀ 的正负决定 r₁ 加一还是减一。他们让 prover 直接给出答案 <code>hinted_r1</code>，电路把 r₀ 的合法区间整体平移成非负区间，只做<strong>一次</strong>范围检查就同时确认「方向对」和「数值对」（"interval shifting"，第 300–345 行注释）。</p>
+
+<h3>和你的 MPC 经验对照（这是一个好话题）</h3>
+<p>这两个技巧的共同点是：<strong>让 prover 算，电路只验</strong>。ZK 能这样做，是因为 prover 知道全部 witness。MPC 里做不到 —— SHIELD 里没有任何一方知道完整秘密，SampleInBall 必须真的在混淆电路里一门一门执行（你把它从 890K 门压到 355K 门，就是因为躲不掉）。</p>
+<div class="say">After I sent the email I looked at your ML-DSA test circuit, and what struck me is how much you push to the prover — SampleInBall is checked from prover-supplied indices, and UseHint needs a single range check with the interval shift. In MPC I can't do that: nobody holds the secret, so in SHIELD SampleInBall had to be executed gate by gate, and the best I could do was shrink the circuit from 890K to 355K gates. That contrast is exactly why I think the hash side is where the remaining cost lives in ZK.</div>
+<div class="warn">只有在你<strong>真的读过</strong>源码那两段注释之后才说 "I looked at your circuit"。没读就换成 "I saw from your IETF slides that you already have an ML-DSA-44 proof at 858 ms"。</div>
+
+<h2>4. 你的读源码任务（15 分钟）</h2>
+<ol>
+  <li>打开 <a href="https://github.com/longfellow-zk/longfellow-zk/blob/main/lib/circuits/tests/pq/ml_dsa/ml_dsa_circuit.h"><code>ml_dsa_circuit.h</code></a>，读第 30–60 行头注释。</li>
+  <li>找 <code>assert_valid_signature_on_mu</code>（约第 815 行），看它依次调了哪几个 <code>assert_*</code>，和 FIPS 204 Algorithm 8 对行号。</li>
+  <li>读 UseHint 的注释（约第 300–345 行）和 SampleInBall 的注释（约第 540–560 行）。</li>
+  <li>打开 <a href="https://github.com/longfellow-zk/longfellow-zk/blob/main/lib/circuits/tests/pq/ml_dsa/ml_dsa_circuit_test.cc"><code>ml_dsa_circuit_test.cc</code></a>，找 <code>make_ml_dsa_circuit</code>（约第 108 行），确认 <code>private_input()</code> 在哪里；benchmark 叫 <code>BM_MLDSA44ZK_Prove</code>。</li>
+</ol>
+
+<h2>自测</h2>
+<p class="score"></p>
+<div class="quiz" data-answer="1">
+  <div class="q">Q1. 你邮件里说「主要是 Keccak 问题」，最核心的理由是？</div>
+  <button class="opt">ML-DSA 的公钥和签名都比 ECDSA 长很多</button>
+  <button class="opt">格算术在模 q 域里原生，SHAKE 是比特级运算</button>
+  <button class="opt">NTT 在任何证明系统里都无法被高效表示</button>
+  <div class="why">域选 mod q 时格算术近乎原生；SHAKE 的每个比特操作都要变成约束。</div>
+</div>
+<div class="quiz" data-answer="2">
+  <div class="q">Q2. Google 的测试电路里，哪一项是公开输入？</div>
+  <button class="opt">签名 (c̃, z, h) 和消息代表值 μ</button>
+  <button class="opt">SampleInBall 用到的被接受样本的下标</button>
+  <button class="opt">已展开的矩阵 Â、NTT(t₁) 和 tr</button>
+  <div class="why">pk 在 private_input() 之前输入，所以是公开的；签名、witness、μ 在之后，是私有的。</div>
+</div>
+<div class="quiz" data-answer="0">
+  <div class="q">Q3. 为什么 ZK 电路能让 prover 直接提供 SampleInBall 的答案，而 SHIELD 不行？</div>
+  <button class="opt">ZK 的 prover 知道全部 witness，MPC 无人知道秘密</button>
+  <button class="opt">ZK 电路的门数没有上限，MPC 电路的门数有上限</button>
+  <button class="opt">SHIELD 使用的 SHAKE 版本和 FIPS 204 并不相同</button>
+  <div class="why">「prover 算、电路验」依赖 prover 掌握 witness；MPC 里秘密是分散的，必须联合执行。</div>
+</div>
+<div class="recall">
+  <div class="q">回忆练习：不看页面，用三句英文向 abhi 解释你邮件里那句话，第三句要落到 SHIELD 的两个数字上。</div>
+  <textarea></textarea>
+</div>
+
+<div class="source"><strong>首选原始资料</strong>
+<a href="https://github.com/longfellow-zk/longfellow-zk/blob/main/lib/circuits/tests/pq/ml_dsa/ml_dsa_circuit.h"><code>ml_dsa_circuit.h</code></a> 本身 —— 按第 4 节的顺序读。读不懂的注释截图发给我，我逐句解释。</div>
+<p class="ask">读完后，用你自己的话跟我复述一遍「这个电路证明了什么、没证明什么」，我来检查。</p>
+
+<nav class="lessons"><a href="0005-interview-playbook.html">← 0005 面谈剧本</a><a href="../index.html">回到目录</a></nav>
+</main>
+</body>
+</html>
