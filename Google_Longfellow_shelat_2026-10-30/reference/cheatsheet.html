@@ -38,6 +38,14 @@
 </table>
 <p class="ask">q = 8380417 = 2<sup>23</sup> − 2<sup>13</sup> + 1；n = 256；d = 13。H = SHAKE256，G = SHAKE128（ExpandA）。Keccak-f[1600] = 38,400 AND（SHA-256 压缩 22,573）。* = 按 FIPS 204 推算，非发表数字；44 的数字来自 GordieHowe。</p>
 
+<h2>Falcon-512（round-3 规范 v1.2，Alg. 3 / 16）</h2>
+<table>
+<tr><td>验签四步</td><td>c ← HashToPoint(r‖m)（SHAKE256，16 bit，t &lt; 5q 收下）→ s₂ ← Decompress(s) → s₁ = c − s₂h mod q → ‖(s₁,s₂)‖² ≤ ⌊β²⌋</td></tr>
+<tr><td>参数</td><td>q = 12289（q − 1 = 3·2<sup>12</sup>），n = 512；pk = 一个多项式 h</td></tr>
+<tr><td>Keccak 置换</td><td>≈ 9，<strong>公钥公开或隐藏都一样</strong>（ML-DSA-44：≈ 10 → ≈ 116）；只数了哈希，FIPS 206 未定稿</td></tr>
+</table>
+<p class="ask"><strong>下一步故事线：</strong>签发侧已完成（SHIELD / FLOCK）→ 持有人侧（Longfellow）。先讲 B（SHIELD + 现成电路，零改动），再看反应讲 F（Falcon 电路）；A（藏公钥 ML-DSA）备用。结尾：<em>"would you be open to requesting me from the pool for your team?"</em> 说完就停。</p>
+
 <h2>你自己的数字（SHIELD，ML-DSA-44 / 65 / 87，在线 Mcycles）</h2>
 <table>
 <tr><td>Keccak 两步</td><td>341 / 438 / 597</td></tr>
@@ -50,7 +58,7 @@
 </table>
 <p class="ask">threshold-Falcon：<code>PRG::random_data</code> 传了元素数而非字节数 → 7/8 采样缓冲未初始化，norm 偏 +15%；<code>size_t</code> 吞掉 −1。修后 norm 在规格 0.4% 内，签名快约 9×，PR 已 merge。HERO：untrusted helper，客户端带宽 32.4 KB vs Path ORAM 832 KB（N = 2<sup>26</sup>，4 KB 块），under review NDSS 2027。</p>
 
-<h2>竞品（2026-10）</h2>
+<h2>竞品（2026-10）—— 不主动提，对方提起再用</h2>
 <table>
 <tr><td>GordieHowe（ePrint 2026/2615）</td><td>ML-DSA-44 87.3 ms / 549 KiB（量子参数），"70.2× faster" than optimized Longfellow；MAC 占 51%；批量 Keccak prover 快 17.1×</td></tr>
 <tr><td>Nowhere Man（ePrint 2026/2472，S&amp;P 2027）</td><td>ML-DSA device binding on Longfellow；"850ms ... impractical ... several calls to SHAKE"</td></tr>

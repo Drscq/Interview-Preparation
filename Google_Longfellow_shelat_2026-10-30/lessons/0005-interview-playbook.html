@@ -12,7 +12,7 @@
 <header class="lesson">
   <div class="kicker">Lesson 0005 · 约 30 分钟 + 两遍口头演练 · <a href="../index.html">返回目录</a></div>
   <h1>面谈剧本与项目提案</h1>
-  <p class="goal"><strong>这一课的收获：</strong>60 分钟面谈的节奏、三个可选的 12 周项目（每个都有「第一周做什么」）、要问他们的问题、工作授权的标准说法，以及最后要拿到的那个明确的下一步。</p>
+  <p class="goal"><strong>这一课的收获：</strong>60 分钟面谈的节奏、「签发侧 → 持有人侧」的下一步故事线（B / F / A）、要问他们的问题，以及最后要拿到的那个明确的下一步（池里点名要人）。</p>
 </header>
 
 <h2>1. 这是什么性质的会</h2>
@@ -21,41 +21,36 @@
 <tr><th>时间</th><th>环节</th><th>你的目标</th></tr>
 <tr><td>0–5′</td><td>寒暄 + 自我介绍</td><td>60 秒版本（下面），把话题引向 ML-DSA</td></tr>
 <tr><td>5–20′</td><td>他们讲 / 问你的工作</td><td>SHIELD 讲到成本结构；threshold-Falcon 修 bug 讲到「我会读别人的密码学代码」</td></tr>
-<tr><td>20–40′</td><td>技术讨论</td><td>ML-DSA 验签拆解（第 0003 课）、开放问题（第 0004 课），必要时共享 slide</td></tr>
-<tr><td>40–52′</td><td>项目可能性</td><td>提出 1–2 个项目，听他们的偏好</td></tr>
+<tr><td>20–40′</td><td>技术讨论</td><td>全程共享 slide：我对 Longfellow 的理解 → 他们的 ML-DSA 电路（第 0003、0006 课）</td></tr>
+<tr><td>40–52′</td><td>项目可能性</td><td>第 7、8 页：签发侧 → 持有人侧，先 B 后 F</td></tr>
 <tr><td>52–60′</td><td>你的问题 + 下一步</td><td>拿到明确的下一步（见第 6 节）</td></tr>
 </table>
 
 <h2>2. 60 秒自我介绍</h2>
 <div class="say">I'm a fourth-year PhD student at Virginia Tech with Thang Hoang. My main line is threshold post-quantum signatures: SHIELD, at S&P 2026, runs unmodified FIPS 204 ML-DSA signing inside maliciously secure MPC, so the output verifies under a standard verifier; FLOCK does the same for Falcon and is in the second round at USENIX Security. Along the way I reproduced the CCS threshold-Falcon artifact and found two silent bugs in its sampler and I/O layer — the fixes are merged upstream and signing got about nine times faster. I also work on ORAM. What pulled me to Longfellow is that it proves statements about unmodified standard signatures — the same philosophy as SHIELD — and the post-quantum version of that statement is exactly ML-DSA.</div>
 
-<h2>3. 三个项目提案（挑一个主推，另一个备着）</h2>
-<h3>A. 隐藏公钥的 ML-DSA 签名持有证明（主推）</h3>
-<p><strong>问题：</strong>device binding / issuer hiding 要求公钥隐藏，ExpandA 和 tr 必须进电路（ML-DSA-44 约 96 + 10 次额外 Keccak 置换）。现有测试电路假设公钥公开。<br>
-<strong>做什么：</strong>把 ExpandA（SHAKE128 拒绝采样）和 tr 放进电路；研究 Keccak 放在哪个域、怎么批量化、跨域连接怎么做最便宜；对比 858 ms 基线。<br>
-<strong>第一周：</strong>跑通 <code>BM_MLDSA44ZK_Prove</code>，按子电路（SHAKE、SampleInBall、NTT、UseHint、范围检查）做 profile，确认时间和证明大小花在哪。<br>
-<strong>成功标准：</strong>一个隐藏公钥的 ML-DSA-44 电路 + 一张成本拆解表 + 一份写给 CFRG / 论文的技术报告。<br>
-<strong>你的证据：</strong>Keccak / SampleInBall 的布尔电路你在 SHIELD 里做过；daBits 是跨域搬运的 MPC 版本。</p>
+<h2>3. 下一步：从签发侧到持有人侧（2026-10-28 定稿）</h2>
+<div class="warn"><strong>故事线：</strong>签发侧我已经做完了（SHIELD = 门限 ML-DSA，FLOCK = 与 Falcon 兼容的门限签名，输出都是标准签名）→ 下一步是持有人侧：用 Longfellow 证明「我持有一张后量子签名的凭证」。slide 第 7、8 页上 B 和 F 并列，<strong>口头先讲 B</strong>，看他们的反应再展开 F；A 是备用。</div>
 
-<h3>B. 端到端后量子凭证：门限 ML-DSA 签发 + Longfellow 出示</h3>
-<p><strong>问题：</strong>发证方改用 ML-DSA 后，签发私钥是单点；SHIELD 的输出是<strong>逐比特标准</strong>的 ML-DSA 签名，所以 holder 侧的 Longfellow 电路一行都不用改。<br>
-<strong>做什么：</strong>把 SHIELD 当 issuer 后端，签出 mdoc 风格的 MSO（ML-DSA 版），用 Longfellow 证明持有；量化整个管线的成本，找出 issuer 侧和 holder 侧各自的瓶颈。<br>
-<strong>第一周：</strong>定一个最小的 ML-DSA 版 MSO 格式；用 SHIELD 的 KAT 测试签出样例；接到 Longfellow 的 ML-DSA 测试电路上。<br>
-<strong>风险（主动说）：</strong>更偏系统集成；SHIELD 的离线预处理很重（摊销后每次成功签名是分钟级），适合低频签发，不适合高频。</p>
+<h3>B. ML-DSA 端到端：SHIELD 签发 + Longfellow 出示（先讲）</h3>
+<p><strong>要点：</strong>SHIELD 的输出和 FIPS 204 签名<strong>逐比特相同</strong>，所以 holder 侧他们现成的 ML-DSA 电路一行都不用改。<br>
+<strong>做什么：</strong>定一个最小的 ML-DSA 版 MSO 格式，用 SHIELD 签发（过 KAT），接到现有 ML-DSA 测试电路上证明持有，然后量化整条管线（签发侧和 holder 侧）的成本。<br>
+<strong>风险（主动说）：</strong>偏系统集成；SHIELD 的离线预处理很重，适合低频签发。</p>
 
-<h3>C. ML-DSA 电路的规范一致性</h3>
-<p><strong>问题：</strong>abhi 说 ECDSA 电路已证明与规范等价，ML-DSA 更难。<br>
-<strong>做什么：</strong>先做差分测试和对抗性测试（FIPS 204 KAT、边界情况：hint 的 ω 上限、z 的范数边界、SampleInBall 的上限）找实现层问题，再为形式化等价证明准备规范化的中间表示。<br>
-<strong>诚实的边界：</strong>你没写过 Lean；你的强项是<strong>在密码学 artifact 里找静默 bug</strong>。把它说成「我能在形式化之前把实现层的坑扫一遍，同时学 Lean」。</p>
-<div class="warn">不要一上来就把三个都倒出去。先听他们说团队现在关心什么，再挑最贴的一个展开。A 是默认主推；如果他们更关心部署 / 发证侧，切 B；如果他们更关心形式化，切 C。</div>
+<h3>F. Longfellow 里的 Falcon 电路（研究味更重）</h3>
+<p><strong>要点：</strong>Falcon 公钥只是一个多项式，藏公钥几乎不多花 Keccak：约 9 次，ML-DSA 约 116 次。详见 <a href="0007-falcon-holder-side.html">第 0007 课</a>。<br>
+<strong>边界：</strong>这只数了 Keccak；Decompress 和平方范数有自己的代价；FIPS 206 还是草案。</p>
+
+<h3>A. 藏公钥的 ML-DSA（备用）</h3>
+<p>他们说「PQ 只做 ML-DSA」时用。把 ExpandA 和 <code>tr</code> 放进电路（约多 96 + 10 次置换），对比 858 ms 基线。第一周：跑通 <code>BM_MLDSA44ZK_Prove</code>，按子电路做 profile。</p>
+<p><strong>C（规范一致性 / 形式化）</strong>不上 slide。只在他们主动提形式化时说：「我的强项是在密码学 artifact 里找静默 bug，可以在形式化之前把实现层扫一遍，同时学 Lean。」</p>
 
 <h2>4. 要问他们的问题（挑 3–4 个）</h2>
 <ol>
   <li>What does the post-quantum roadmap for Longfellow look like — is the next target issuer-side ML-DSA in mdoc, or device binding first?</li>
   <li>Your ML-DSA circuit is marked experimental. What would it take for it to become production-grade — performance, formal verification, or the spec side?</li>
-  <li>How do you think about where Keccak should live — GF(2^128) with a cross-field link, or natively next to the F_q arithmetic?</li>
-  <li>Is the Rust rewrite going to be the main code base going forward? Where would an intern's code land?</li>
-  <li>For the internship itself: would this go through the PhD SWE intern pool I'm already in, or the Student Researcher track? Who would be the host?</li>
+    <li>Is the Rust rewrite going to be the main code base going forward? Where would an intern's code land?</li>
+  <li>Is Falcon on your radar, or is ML-DSA the only post-quantum target for now?</li>
 </ol>
 
 <h2>5. 工作授权 —— 不主动提</h2>
@@ -64,9 +59,9 @@
 <p>背景（自己知道就行，别展开）：VT 的 CPT 通道已关；走 pre-completion OPT，VT 要求先有 offer letter 才出 I-20；递 I-765 后需要 premium processing（30 天）才赶得上暑期开工；2027-04 之后才拿到 offer 基本来不及。详见 <code>Internship2027/reference/visa-constraints.md</code>。</p>
 <div class="warn">只在对方问到授权 / 时间线时说；不要主动大段解释签证。表单类问题：legally authorized = Yes，require sponsorship = No。</div>
 
-<h2>6. 结尾：一定要拿到的下一步</h2>
-<div class="say">This was really helpful — thank you both. What's the best next step on your side? I'm in the PhD SWE intern pool under my name, so if it's useful you can request me there directly, and I'm happy to send a one-page project sketch this week to make the case internally.</div>
-<p>会后 24 小时内：发感谢信 + 一页 sketch（按他们会上表现出兴趣的那个项目写）。</p>
+<h2>6. 结尾：一定要拿到的下一步（slide 第 10 页）</h2>
+<div class="say">I'm already in the PhD SWE intern pool. If you think there's a fit, would you be open to requesting me from the pool for your team? I'm happy to send a one-page project sketch this week to help make the case.</div>
+<p><strong>说完就停，等他们回答，不要自己接话。</strong>会后 24 小时内：发感谢信 + 一页 sketch（按他们会上表现出兴趣的那个方向写）。</p>
 
 <h2>7. 雷区</h2>
 <ul>
@@ -80,11 +75,11 @@
 <h2>自测</h2>
 <p class="score"></p>
 <div class="quiz" data-answer="2">
-  <div class="q">Q1. 对方先问「你想做什么项目」，最好的开场是？</div>
-  <button class="opt">一口气讲完三个项目，让他们自己挑</button>
-  <button class="opt">说自己什么都可以，完全听他们安排</button>
-  <button class="opt">先问团队现在最关心什么，再挑一个展开</button>
-  <div class="why">先听再挑；A 是默认主推，按他们的反应切 B 或 C。</div>
+  <div class="q">Q1. 讲到「下一步」时，最好的顺序是？</div>
+  <button class="opt">先讲 Falcon 电路，再讲 ML-DSA 端到端</button>
+  <button class="opt">把 A、B、C、F 四个方向一次全部讲完</button>
+  <button class="opt">先讲 B 端到端，看反应再展开 Falcon</button>
+  <div class="why">B 门槛最低、和 SHIELD 直接相连；F 研究味更重，看他们兴趣再展开；A 备用。</div>
 </div>
 <div class="quiz" data-answer="0">
   <div class="q">Q2. 项目 B 为什么不需要改 Longfellow 的 ML-DSA 电路？</div>
@@ -108,7 +103,7 @@
   <div class="why">目标是「他在池里 request 你」或明确 host / 时间线；加一页 sketch 帮他内部争取。</div>
 </div>
 <div class="recall">
-  <div class="q">演练：把第 2 节的自我介绍和第 3 节项目 A 各大声说两遍并计时（目标：自我介绍 ≤ 70 秒，项目 A ≤ 90 秒）。写下卡壳的地方。</div>
+  <div class="q">演练：把第 2 节的自我介绍和第 3 节「签发侧 → 持有人侧」（B + F）各大声说两遍并计时（目标：自我介绍 ≤ 70 秒，下一步 ≤ 90 秒）。写下卡壳的地方。</div>
   <textarea></textarea>
 </div>
 
@@ -116,7 +111,7 @@
 abhi 的主页 <a href="https://shelat.khoury.northeastern.edu/">shelat.khoury.northeastern.edu</a>（5 分钟）：<em>"My current interests are to formally verify this protocol's security proof, as well as its implementation."</em> —— 这句话决定了项目 C 不是凑数。</div>
 <p class="ask">准备好之后告诉我，我们开 grilling：我扮 abhi 和 Matteo，一个问题一个问题地追问。</p>
 
-<nav class="lessons"><a href="0004-landscape-and-positioning.html">← 上一课</a><a href="../index.html">回到目录</a></nav>
+<nav class="lessons"><a href="0004-landscape-and-positioning.html">← 上一课</a><a href="0007-falcon-holder-side.html">Falcon 与持有人侧 →</a></nav>
 </main>
 </body>
 </html>

@@ -15,7 +15,7 @@
 </header>
 
 <h2>最重要的一条</h2>
-<p>Google <strong>已经</strong>在 Longfellow 里有 ML-DSA 验签电路（IETF 126 公开数字：ML-DSA-44 858 ms），本月还有三篇论文拿它当基线。你冷邮件里的「主要是 Keccak 问题」是对的，但不新。<strong>面谈的价值在于：你能帮他们解决他们自己点名的开放问题</strong>（隐藏公钥、Keccak 布局、跨域连接、规范一致性、发证侧私钥）。</p>
+<p>Google <strong>已经</strong>在 Longfellow 里有 ML-DSA 验签电路（IETF 126 公开数字：ML-DSA-44 858 ms），本月还有三篇论文拿它当基线。你冷邮件里的「主要是 Keccak 问题」是对的，但不新。<strong>面谈的主线是你自己做过的东西</strong>：签发侧（SHIELD / FLOCK）你已经做完，下一步是持有人侧（Longfellow），见第 0005、0007 课。</p>
 
 <h2>课程（按顺序）</h2>
 <ol>
@@ -25,6 +25,7 @@
   <li><a href="lessons/0004-landscape-and-positioning.html">战场现状：谁在做 ML-DSA-in-ZK，你站在哪</a> · 20′</li>
   <li><a href="lessons/0005-interview-playbook.html">面谈剧本与项目提案</a> · 30′ + 口头演练</li>
   <li><a href="lessons/0006-your-email-and-their-circuit.html">你邮件里那句话，和他们已经写好的 ML-DSA 电路</a> · 30′（含读源码）⭐ 在 0003 之后读</li>
+  <li><a href="lessons/0007-falcon-holder-side.html">Falcon 验签拆解：为什么藏公钥几乎免费</a> · 15′（slide 第 7、8 页的底气）</li>
 </ol>
 
 <h2>速查</h2>
@@ -40,7 +41,7 @@
 <tr><th>时间</th><th>做什么</th></tr>
 <tr><td>周三晚</td><td>第 0001、0002 课；读 CiC 论文 §1、§2.3、§6.2（40′）</td></tr>
 <tr><td>周四上午</td><td>第 0003 课 + FIPS 204 Alg. 8；<strong>第 0006 课（读他们的 ML-DSA 电路源码）</strong>；第 0004 课</td></tr>
-<tr><td>周四下午</td><td>第 0005 课；对着 slide 大声讲两遍（自我介绍 ≤ 70 秒、项目 A ≤ 90 秒）</td></tr>
+<tr><td>周四下午</td><td>第 0007 课；第 0005 课；对着 slide 大声讲两遍（自我介绍 ≤ 70 秒、「签发侧 → 持有人侧」≤ 90 秒）</td></tr>
 <tr><td>周四晚</td><td><strong>grilling 模拟面试</strong>（我扮 abhi + Matteo），之后补漏</td></tr>
 <tr><td>周五 10:30</td><td>只看速查表；测试 Zoom、共享屏幕、麦克风；10:58 进会议室开 waiting room</td></tr>
 <tr><td>周五会后 24h 内</td><td>感谢信 + 一页 sketch（按会上他们最感兴趣的项目写）</td></tr>

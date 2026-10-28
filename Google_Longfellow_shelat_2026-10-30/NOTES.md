@@ -13,3 +13,11 @@
 - OPT / 工作授权：**这次不谈**。
 - 结尾最重要的 ask：他们愿不愿意从 PhD SWE intern 池里把我要过去。
 - 「项目提案」的含义要重新对齐：用户理解为「基于已有的 threshold ML-DSA / FALCON，下一步做什么」。
+
+## 2026-10-28 grilling 第二轮决定（用户全部采纳推荐）
+- 「下一步」故事线：签发侧已完成（SHIELD / FLOCK）→ 持有人侧（Longfellow）。B = SHIELD 签发 + 现成 ML-DSA 电路（零改动），先讲；F = Longfellow 里的 Falcon 电路（藏公钥 ≈ 9 vs ≈ 116 次 Keccak），看反应展开；A = 藏公钥 ML-DSA，备用；C 不上 slide。
+- Slide 11 页：Title → About me → SHIELD → FLOCK + 修 bug → 我对 Longfellow 的理解 → 他们的 ML-DSA 电路 → 下一步 → Falcon 数字 → Questions → 池里点名 ask → Thank you。
+- HERO：About me 一行 + 口头一句（FLORAM 连接），不单独成页。
+- 第 6 页只写公开事实；口头是否说 "I went through your circuit" 等周四 grilling 时看用户能否讲清 SampleInBall index 校验和 UseHint interval shifting。
+- 结尾 ask 原话见 0005 §6，说完停下等回答。
+- Falcon 事实已按 round-3 规范 v1.2 Alg. 3 / Alg. 16 核实；FLOCK 对外说 "Falcon-compatible"。
