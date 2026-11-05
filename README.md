@@ -2,16 +2,17 @@
 
 ## ⏰ 下一场面试
 
-**2026-10-30（周五）11:00 ET · Zoom · Google Longfellow ZK — abhi shelat + Matteo Frigo**
+**蚂蚁技术研究院 密码学实验室 · 二面（老板面，熟 MPC）· 时间待定**
 
-→ [`Google_Longfellow_shelat_2026-10-30/`](Google_Longfellow_shelat_2026-10-30/)
+→ [`AntGroup_Crypto-Lab_round2_TBD/`](AntGroup_Crypto-Lab_round2_TBD/)
 
 | 要做什么 | 打开 |
 |---|---|
-| 从这里开始（课程目录 + 两天计划） | [`index.html`](Google_Longfellow_shelat_2026-10-30/index.html) |
-| 面谈时共享屏幕的 slide | [`slides/longfellow-chat.pdf`](Google_Longfellow_shelat_2026-10-30/slides/longfellow-chat.pdf) |
-| 面谈时开在第二屏的速查表 | [`reference/cheatsheet.html`](Google_Longfellow_shelat_2026-10-30/reference/cheatsheet.html) |
-| 已定的决定（结构、不提竞品、不谈 OPT） | [`NOTES.md`](Google_Longfellow_shelat_2026-10-30/NOTES.md) |
+| 自用小抄（不共享屏幕；先读第 4–5 页纠错总表） | [`slides/ant-round2-crib.pdf`](AntGroup_Crypto-Lab_round2_TBD/slides/ant-round2-crib.pdf) |
+| 投递时用的简历（不改） | [`resume/Changqi_Sun_AntGroup_PQC2027.pdf`](AntGroup_Crypto-Lab_round2_TBD/resume/Changqi_Sun_AntGroup_PQC2027.pdf) |
+| 已定的决定 + 待确认项 | [`NOTES.md`](AntGroup_Crypto-Lab_round2_TBD/NOTES.md) |
+
+上一场：Google Longfellow（2026-10-30）→ [`Google_Longfellow_shelat_2026-10-30/`](Google_Longfellow_shelat_2026-10-30/)（待挪进 `archive/`）
 
 ## 约定
 
