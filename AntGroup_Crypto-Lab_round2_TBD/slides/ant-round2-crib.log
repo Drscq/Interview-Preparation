@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999997 (TeX Live 2025) (preloaded format=xelatex 2026.9.1)  5 NOV 2026 10:51
+This is XeTeX, Version 3.141592653-2.6-0.999997 (TeX Live 2025) (preloaded format=xelatex 2026.9.1)  5 NOV 2026 10:59
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1634,7 +1634,57 @@ LaTeX Font Info:    Font shape `TU/lmss/m/it' in size <12> not available
 
 ] [26
 
-] [27
+]
+Underfull \hbox (badness 10000) in paragraph at lines 454--454
+[]|\TU/lmss/bx/n/7 FIPS
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 454--454
+[]|\TU/lmss/bx/n/7 Ta, Liu, Chau, Wang
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 454--454
+[]|\TU/lmss/bx/n/7 semi-honest\TU/PingFangSC(0)/b/n/7 ，|  可 信 \TU/lmss/bx/n/7 d
+ealer\TU/PingFangSC(0)/b/n/7 ，|  无
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 454--454
+[]|\TU/lmss/bx/n/7 Gladius |\TU/PingFangSC(0)/b/n/7 （\TU/lmss/bx/n/7 Cong–Cozzo
+–
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 454--454
+\TU/lmss/bx/n/7 Maram–Smart, ASI-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 454--454
+[]|\TU/lmss/bx/n/7 Lapiha–Prest |\TU/PingFangSC(0)/b/n/7 （\TU/lmss/bx/n/7 ASI-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 454--454
+\TU/lmss/bx/n/7 ACRYPT’25\TU/PingFangSC(0)/b/n/7 ）| \TU/lmss/bx/n/7 / Boudgoust
+
+ []
+
+
+Underfull \hbox (badness 7832) in paragraph at lines 454--454
+[]|\TU/lmss/bx/n/7 Amber |\TU/PingFangSC(0)/b/n/7 （\TU/lmss/bx/n/7 NIST MPTC S2
+\TU/PingFangSC(0)/b/n/7 ，|
+ []
+
+
+Underfull \hbox (badness 4060) in paragraph at lines 454--454
+[]|\TU/PingFangSC(0)/b/n/7 主 动；|  可 信 \TU/lmss/bx/n/7 setup\TU/PingFangSC(0)/b/
+n/7 ；| []有 专 利[]；| \TU/lmss/bx/n/7 ct
+ []
+
+[27
 
 ] [28
 
@@ -1646,10 +1696,15 @@ LaTeX Font Info:    Font shape `TU/lmss/m/it' in size <12> not available
 
 ] [32
 
-]
-[33
+] [33
 
 ] [34
+
+] [35
+
+] [36
+
+] [37
 
 ]
 \tf@nav=\write6
@@ -1670,12 +1725,12 @@ Package rerunfilecheck Info: File `ant-round2-crib.out' has not changed.
 (rerunfilecheck)             Checksum: D41D8CD98F00B204E9800998ECF8427E;0.
  ) 
 Here is how much of TeX's memory you used:
- 31858 strings out of 470147
- 760082 string characters out of 5477097
- 1083180 words of memory out of 5000000
- 59822 multiletter control sequences out of 15000+600000
+ 31906 strings out of 470147
+ 762889 string characters out of 5477097
+ 1085147 words of memory out of 5000000
+ 59870 multiletter control sequences out of 15000+600000
  639456 words of font info for 134 fonts, out of 8000000 for 9000
  36 hyphenation exceptions out of 8191
  115i,20n,121p,520b,850s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
-Output written on ant-round2-crib.pdf (34 pages).
+Output written on ant-round2-crib.pdf (37 pages).

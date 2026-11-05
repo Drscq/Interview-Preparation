@@ -22,5 +22,6 @@
 ## 小抄里标【待确认】的，面试前自己过
 - SHIELD 的 SPDZ 域是不是 F_q（论文只写 F_p）→ 决定 MAC soundness 是不是 2^-23。
 - 被拒迭代里打开过的值是否也进 batch MAC check。
-- 掩码 Kyber 文献的出处是凭记忆写的。
+- 掩码 Kyber 文献的出处是凭记忆写的（ML-KEM 部分已换成 threshold 可行性分析，文献经 agent 核对）。
+- threshold ML-KEM 的 Keccak 计数、65 万 AND、「约为 SHIELD 的 1/10」是推算，要用 SHIELD 实测每 AND 成本换算。
 - ISW 的 d+1 份证明（Rivain–Prouff CHES 2010）出处凭记忆。

@@ -419,27 +419,92 @@ M3 & $\hat{\mathbf s}_{1,2}$ 的份 1 换成 32 B 种子（SHAKE128 展开）& $
 \src{H/intro.tex:300--334；状态：NDSS 2027 在审}
 \end{frame}
 \begin{frame}
-\vfill\centering{\Huge\color{accent} Part 5 · threshold ML-KEM}\\[6pt]{\normalsize 组里想探索的方向}\vfill
+\vfill\centering{\Huge\color{accent} Part 5 · threshold ML-KEM}\\[6pt]{\normalsize 组里想探索、但不确定能不能做 —— 可行性分析}\vfill
 \end{frame}
-\begin{frame}{strict ML-KEM：如果让我做}
-\warn{场景是我猜的：threshold 还是 masked？面试时先问一句「组里说的 ML-KEM 是多方持钥，还是抗侧信道实现？」}\\[2pt]
+\begin{frame}{T1 · threshold ML-KEM：结论先说 + 为什么比 threshold ECDH/RSA 难}
+\begin{columns}[T]
+\column{.45\textwidth}
+\textbf{结论（开口第一句）}\\
+「\textbf{能做，而且按 SHIELD 的路线，成本大约只有 threshold ML-DSA 签名的 1/10}。已经有人做出输出和 FIPS 203 逐比特一致的版本（Ta et al. 2026），但只到 semi-honest + 可信 dealer + 218 轮。\alert{malicious、dishonest majority、常数轮、FIPS 203 一致} 的版本目前公开文献里没有 —— 这正是可以做的。」\\[4pt]
+\textbf{NIST 的态度}（IR 8214C 2pd）：从 threshold K-PKE 到 threshold ML-KEM.Decaps ``\emph{impractically expensive in the threshold setting}''；MPTC 第一轮 60 份 preview \textbf{没有一份}做 ML-KEM Decaps $\Rightarrow$ 空白，也意味着要拿数字证明「可接受」
+\column{.55\textwidth}
+\textbf{为什么难}
+\begin{enumerate}
+  \item \textbf{部分解密不能公开}：ECDH 公开 $s_iP$ 安全；Kyber 的 $w=v-\mathbf s^\top\mathbf u$ 对 $\mathbf s$ 线性，$\mathbf u$ 由攻击者选 $\Rightarrow$ 取单位向量就把 $\mathbf s_i$ 的系数吐出来。要 noise flooding，但 $q=3329$ 解码余量只有 $\approx q/4$，放不下 $\Rightarrow$ 必须改参数 = 不是 FIPS 203
+  \item \textbf{FO 检查在解密之后}：ML-KEM 密文没有合法性证明 $\Rightarrow$ 比较完成之前 $m'$ 不能公开，否则就是 plaintext-checking oracle（几千次查询恢复私钥）
+  \item \textbf{非线性全在 MPC 里}：$G(m'\Vert h)$（SHA3-512 on secret）、PRF$\to$CBD 采样（B2A）、Compress 取整、1024 系数判等、$\bar K=J(z\Vert c)$（$z$ 秘密，$c$ 全部分组都要进 MPC）、最后 secret mux
+\end{enumerate}
+\end{columns}
+\end{frame}
+
+\begin{frame}{T2 · 已有工作地图（threshold KEM）}
+{\scriptsize\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\textwidth}{@{}p{3.3cm}p{0.9cm}Yp{3.6cm}@{}}\toprule
+\textbf{工作} & \textbf{FIPS 203} & \textbf{技术} & \textbf{安全 / 性能} \\\midrule
+\textbf{Ta, Liu, Chau, Wang}（CSIRO），ePrint 2026/2220 & \textbf{是} & $t$-of-$N$ Shamir + Beaver；Keccak / 解码 / 比较走布尔电路；Compress 和比较改成「打开 $\delta=x-r$ 判区间」；$J$ 与重加密并行再 mux & semi-honest，可信 dealer，无 DKG；768：218 轮、71.2 万三元组、(2,3) 72 ms ——\alert{单机模拟} \\
+\textbf{Gladius}（Cong--Cozzo--Maram--Smart, ASIACRYPT'21）& 否 & LWR + Tag-KEM，$G$ 换 Rescue；明确说 Kyber 的 FO 难 threshold 化 & 主动，3 方容 1；4.99 s、13.6 万轮 \\
+\textbf{Lapiha--Prest}（ASIACRYPT'25）/ \textbf{Boudgoust et al.}（PKC'26）& 否 & BCHK 管 IND-CCA，FO 只管一致性 $\Rightarrow$ 重加密交给公开 combiner & $T=32$ 时密文 $\approx$30 KiB \\
+\textbf{Amber}（NIST MPTC S2，PQShield 等）& 否 & 3 轮 decaps；Shamir 版 $N\ge1024$，Vandermonde 版有鲁棒性 & 主动；可信 setup；\alert{有专利}；ct $\approx$31.9 KB \\
+\textbf{Adamas}（上海交大 刘胜利、韩帅等，S2）& 否 & Regev/LP11 + NIZK 证密文合法 + noise flooding + FO；1 轮 & 自适应 CCA；可信 dealer \\\bottomrule
+\end{tabularx}}
+\vspace{.3em}
+
+\textbf{两条路线一句话}：「要么\textbf{保 FIPS 203}，把整个 Decaps 搬进 MPC（Ta 和我们）；要么\textbf{换 threshold 友好的 KEM}（Amber / Adamas / Gladius），快但加密方要换代码、过不了 CMVP。」\\
+\src{NIST IR 8214C：Class N = 已标准化原语（ML-KEM 在 N2.2，只要求 K-PKE），S2 = 非标准 KEM；正式提交预计 2027-03-01；N4 允许 DKG 用随机采样代替从种子 $d$ 派生}
+\end{frame}
+
+\begin{frame}{T3 · 按 SHIELD 路线做：成本估算 + 能复用什么 \warn{数字是推算，需用 SHIELD 实测换算}}
+\begin{columns}[T]
+\column{.48\textwidth}
+\textbf{ML-KEM-768 一次 Decaps 在 MPC 里的 Keccak-f}\\[2pt]
+{\scriptsize\begin{tabular}{@{}lr@{}}\toprule
+$G$（64 B 输入，SHA3-512 rate 72 B）& 1 \\
+PRF：$\mathbf y$ 3 + $\mathbf e_1$ 3 + $e_2$ 1 & 7 \\
+$J$（32+1088 B，SHAKE256 rate 136 B）& 9 \\
+$H(ek)$、展开 $\hat A$ & 0（公开）\\\midrule
+\textbf{合计} & \textbf{17} \\\bottomrule
+\end{tabular}}\\[2pt]
+$17\times38{,}400\approx$ \textbf{65 万 AND}（+ 解码/比较/mux $\approx$6 万；与 Ta 的 71.2 万三元组吻合）；512 / 1024：14 / 22 次\\[3pt]
+\textbf{对比 SHIELD}：ML-DSA-65 每次迭代 $\approx$32 次 Keccak-f $\times$ 5.1 次重试 $\approx$160 次 $\Rightarrow$ KEM \textbf{约 1/10}，而且\textbf{确定性单遍、没有拒绝循环}
+\column{.52\textwidth}
+\textbf{SHIELD 积木直接复用}
+\begin{itemize}
+  \item SPDZ：NTT、$\mathbf s^\top\mathbf u$、$A\mathbf r$ 全部线性 $\Rightarrow$ 本地
+  \item daBits：7,424 个比特 B2A（7,168 CBD + 256 消息）；B2A 之后 CBD 就是线性求和
+  \item edaBit 式「打开掩码判区间」：1,280 个 12-bit 系数（256 解码 + 1,024 比较）
+  \item \textbf{WRK17 常数轮}：正好打掉 Ta 的 218 轮瓶颈（30 ms RTT 下 218 轮光等待就 $\approx$6.5 s）
+  \item batch MAC check、Kyster 并发修复照搬
+\end{itemize}
+\textbf{可选优化}：先公开有效位 $b$，等价显式拒绝的 FO$^\perp$（HHK17 ROM 下 IND-CCA）$\Rightarrow$ 只有 $b=0$ 才算 $J$，正常路径 Keccak 17$\to$8。\alert{代价：不再与 FIPS 203 隐式拒绝逐比特一致}\\[3pt]
+\textbf{DKG}：NIST 允许随机采样 $\Rightarrow$ 抛币得 $\rho$；共享随机比特 popcount 得 CBD 份（\alert{不能各方各采再相加，分布会变宽}）；$\hat{\mathbf t}$ 本地算后公开。要种子格式 $(d,z)$ 时多 $\approx$7 次 Keccak-f
+\end{columns}
+\end{frame}
+
+\begin{frame}{T4 · 场景、风险，以及我会怎么推进}
 \begin{columns}[T]
 \column{.5\textwidth}
-\textbf{FIPS 203 Decaps 骨架}（难点都在这）
-\begin{enumerate}
-  \item $\mathbf w=v-\mathrm{NTT}^{-1}(\hat{\mathbf s}^\top\circ\mathrm{NTT}(\mathbf u))$ \hfill {\color{ok}线性 $\Rightarrow$ 本地}
-  \item $m'=\mathrm{Compress}_1(\mathbf w)$ \hfill {\color{warn}舍入 = 比较 $\Rightarrow$ A2B}
-  \item $(K',r')=G(m'\Vert h)$ \hfill {\color{warn}SHA3-512 on secret}
-  \item $c'=\mathrm{Encrypt}(ek,m',r')$：CBD 采样（SHAKE $\to$ B2A），$A\mathbf r$ 线性，$\mathrm{Compress}_{d_u,d_v}$ 又是舍入
-  \item $\bar K=J(z\Vert c)$；\textbf{$c\stackrel{?}{=}c'$}，不能泄露走了哪条分支（implicit rejection）
-\end{enumerate}
-\textbf{$q=3329$}（12 bit），比 ML-DSA 小，域更小 $\Rightarrow$ MAC soundness 问题更突出
+\textbf{易被问倒}：\alert{TLS 1.3 的 X25519MLKEM768 里，Decaps 在客户端（临时密钥）}；服务器做的是 Encaps $\Rightarrow$ Keyless-SSL 式「服务器私钥分割」要分的是\textbf{签名}，不是 ML-KEM\\[3pt]
+\textbf{真正需要长期密钥 Decaps 的场景}
+\begin{itemize}
+  \item 数字信封 / KEK 解包、加密备份
+  \item HPKE / ECH 长期密钥；KEMTLS / AuthKEM
+  \item 托管、合规 key escrow；MPC 钱包备份
+  \item 蚂蚁语境 \warn{推断}：客户端敏感字段加密到后端公钥（SM2/RSA $\to$ ML-KEM）；密码机集群去单点；AntChain 托管；隐语 SecretFlow SPU 做落地运行时
+\end{itemize}
+\textbf{频率}：每次几十 ms 到秒级 $\Rightarrow$ 适合\textbf{低频高价值}，不适合每条连接
 \column{.5\textwidth}
-\textbf{threshold ML-KEM}：SHIELD 打法直接迁移 —— SPDZ 做 1、4 的线性部分；WRK17 做 Keccak、Compress、比较；daBits 桥接；结果用 oblivious MUX 选 $K'$/$\bar K$\\[3pt]
-\textbf{masked ML-KEM}：同样的积木 —— masked Compress（A2B）、masked Keccak、masked CBD（B2A）、\textbf{masked comparison}（历史上最容易出错的一块）、FO 的 plaintext-checking-oracle 侧信道\\
-\src{凭记忆的前作：Bos et al. ``Masking Kyber'' TCHES'21；Heinz et al. first-order masked Kyber on M4 (ePrint 2022/058)；Bhasin et al. masked comparison 攻防 TCHES'21 —— \warn{引用前核对}}\\[3pt]
-\textbf{我能带过去的经验}：bit-exact 合规的工程纪律；A2B$_q$（Compress 就是 HighBits 的翻版，$q$ 只有 12 bit 更便宜）、B2A（CBD 采样）；4 份 TI Keccak 直接复用；「只合并 1 个判定位」用在 FO 比较；R1/R2 barrier 与编译器无关可直接迁移\\
-\textbf{威胁模型差别}：KEM 面对\textbf{选择密文}，FO 判定位和比较 gadget 是主攻击面；ML-DSA 是已知消息
+\textbf{如果让我做（3 个月）}
+\begin{enumerate}
+  \item 第 1 月：SHIELD 框架上跑 semi-honest 基线，对齐 Ta 的数字；拿 FIPS 203 KAT 验逐比特一致
+  \item 第 2 月：换 malicious（SPDZ MAC + WRK17）；真实 LAN/WAN 测；FO$^\perp$ 优化做开关
+  \item 第 3 月：去掉可信 dealer（DKG + 分布式预处理）；写成论文 / 进铜锁原型
+\end{enumerate}
+\textbf{反问老板}（任选 1--2）
+\begin{itemize}
+  \item 组里的目标场景是哪种：数字信封、托管，还是别的？方数和 $t$ 大概多少？
+  \item 必须 FIPS 203 / 国密合规逐比特一致吗？还是可以接受 threshold 友好变体？
+  \item 部署是同机构多机房（可接受 honest majority）还是跨机构？
+\end{itemize}
 \end{columns}
 \end{frame}
 \begin{frame}
@@ -587,6 +652,7 @@ M3 & $\hat{\mathbf s}_{1,2}$ 的份 1 换成 32 B 种子（SHAKE128 展开）& $
 \textbf{数字}
 \begin{itemize}
   \item ML-DSA $q=8380417=2^{23}-2^{13}+1$；ML-KEM $q=3329$
+  \item threshold ML-KEM-768：17 次 Keccak-f $\approx$ 65 万 AND；Ta et al. 218 轮、72 ms（单机）
   \item 期望重试：44/65/87 = 4.25 / 5.1 / 3.85
   \item SHIELD：2--5 方；单次迭代 198--536 ms；23 轮；7.7--14.7 MB/CA
   \item WRK17 online 4 轮；SampleInBall 890K$\to$355K（相对最初编码）
