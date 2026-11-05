@@ -15,6 +15,22 @@
   <p>这次面谈的统一用语。每个词只用一种说法；「避免」列出的是容易说混的别名。</p>
 </header>
 
+<h2>ZK 基本名词（谁提供、谁看得到）</h2>
+<p>详解见 <a href="../lessons/0001-what-longfellow-proves.html">第 0001 课 §0</a>。</p>
+<dl>
+<dt>关系 / 电路（relation R / circuit C）</dt><dd>公开的检查规则，R(x, w) = 1 表示 w 是 x 的合格证据。由协议 / 标准提前固定，双方都知道。</dd>
+<dt>陈述（statement x，也叫 instance、public input）</dt><dd>要证明的那句话里公开的部分，prover 和 verifier 都有。mdoc 里：发证方公钥、披露的属性、日期、会话信息。</dd>
+<dt>证据（witness w，也叫 private input）</dt><dd>让陈述成立的秘密，只有 prover 有。mdoc 里：MSO、发证方签名、device 公钥与签名。</dd>
+<dt>Prover（证明者）</dt><dd>输入 (x, w)，输出证明 π。mdoc 里是手机钱包。</dd>
+<dt>Verifier（验证者）</dt><dd>输入 (x, π)，输出接受 / 拒绝；看不到 w。mdoc 里是网站 / 读卡器（relying party 依赖方）。</dd>
+<dt>证明（proof π）</dt><dd>prover 发给 verifier 的一串字节。</dd>
+<dt>承诺（commitment）</dt><dd>prover 把值锁进「保险箱」：对方看不到（hiding），自己改不了（binding）。</dd>
+<dt>挑战（challenge）</dt><dd>verifier 的随机抽查；非交互版由 Fiat–Shamir 用哈希生成。</dd>
+<dt>记录（transcript）</dt><dd>一次交互中所有消息的有序列表。</dd>
+<dt>完备性 / 可靠性 / 零知识</dt><dd>诚实时一定接受 / 假陈述几乎不可能被接受（防恶意 prover）/ verifier 学不到 w（防好奇 verifier）。</dd>
+<dt>透明（transparent）</dt><dd>没有可信设置（trusted setup）；Longfellow 只需约定哈希函数。</dd>
+</dl>
+
 <h2>证明系统</h2>
 <dl>
 <dt>Longfellow ZK（libZK）</dt><dd>Google 的零知识证明库与协议：sumcheck + Ligero，只依赖 SHA-256；2026-10 起是 CFRG 文档 draft-irtf-cfrg-longfellow。<div class="avoid">避免：「Google Wallet ZK」「Longfellow SNARK」</div></dd>

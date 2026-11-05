@@ -10,44 +10,216 @@
 <body>
 <main>
 <header class="lesson">
-  <div class="kicker">Lesson 0004 · 约 20 分钟 · <a href="../index.html">返回目录</a></div>
+  <div class="kicker">Lesson 0004 · 约 30 分钟 · <a href="../index.html">返回目录</a></div>
   <h1>战场现状：谁在做 ML-DSA-in-ZK，你站在哪</h1>
   <p class="goal"><strong>这一课的收获：</strong>知道 Google 自己的 ML-DSA 电路做到哪、最近两周有三篇论文拿它当基线，并练会<strong>不踩雷</strong>地谈这些竞品 —— 把它们变成「我能帮你们解决的问题」，而不是「你们落后了」。</p>
 </header>
 
-<h2>1. 他们已经做了什么</h2>
+<p><strong>怎么读这一课：</strong>每个工作先给一张「黑盒卡片」（输入 / 输出 / 负责 / 结论），先弄懂它们各自在证明什么、交出什么数字；卡片下面折叠的「细节（可跳过）」讲内部做法，面谈不需要。标题里的 <strong>ML-DSA-in-ZK</strong> 指「在零知识证明里证明自己持有一个 ML-DSA 签名」。</p>
+
+<details open>
+<summary><strong>本课缩写速查</strong>（先扫一眼；正文里每个缩写第一次出现时也会写全称和意思）</summary>
+<table>
+<tr><th>缩写 / 名字</th><th>全称</th><th>一句话意思</th></tr>
+<tr><td>ZK</td><td>Zero-Knowledge</td><td>零知识（证明）：让对方相信一件事，但不泄露为什么是真的。</td></tr>
+<tr><td>ML-DSA</td><td>Module-Lattice-Based Digital Signature Algorithm</td><td>NIST 的后量子签名标准 FIPS 204；ML-DSA-44 / -65 是两个参数集（公开矩阵分别为 4×4、6×5 个多项式，后者更安全、更大）。</td></tr>
+<tr><td>NIST / FIPS</td><td>National Institute of Standards and Technology / Federal Information Processing Standard</td><td>美国国家标准与技术研究院 / 它发布的联邦信息处理标准。</td></tr>
+<tr><td>PQ</td><td>Post-Quantum</td><td>后量子：量子计算机出现后仍安全。</td></tr>
+<tr><td>SHA-3 / SHAKE</td><td>Secure Hash Algorithm 3 / Secure Hash Algorithm + KECCAK 的合成名（FIPS 202 没有官方展开）</td><td>SHA-3 哈希家族 / 其中可输出任意长度的版本（SHAKE128、SHAKE256）；底层都是 Keccak 置换。</td></tr>
+<tr><td>Keccak-f</td><td>Keccak-f[1600] 置换</td><td>SHA-3 / SHAKE 的核心运算，24 轮；在 ZK 里很贵。</td></tr>
+<tr><td>NTT</td><td>Number Theoretic Transform</td><td>数论变换（有限域上的 FFT）。注意：本课表格里 Nowhere Man 一行的 <strong>NTT 是日本电信公司</strong>（Nippon Telegraph and Telephone），不是这个。</td></tr>
+<tr><td>README</td><td>—（「读我」文件）</td><td>代码仓库根目录的说明文件。</td></tr>
+<tr><td>IETF</td><td>Internet Engineering Task Force</td><td>互联网工程任务组；会议按编号叫 IETF 125（2026-03）、126（2026-07）。</td></tr>
+<tr><td>CFRG</td><td>Crypto Forum Research Group</td><td>IRTF（Internet Research Task Force，IETF 的姊妹研究组织）下审密码算法的小组；Longfellow 在这里标准化。</td></tr>
+<tr><td>ePrint</td><td>IACR Cryptology ePrint Archive</td><td>密码学预印本网站（IACR = International Association for Cryptologic Research）。</td></tr>
+<tr><td>UMich</td><td>University of Michigan</td><td>密歇根大学。</td></tr>
+<tr><td>DTU</td><td>Technical University of Denmark（Danmarks Tekniske Universitet）</td><td>丹麦技术大学。</td></tr>
+<tr><td>S&amp;P</td><td>IEEE Symposium on Security and Privacy</td><td>安全四大顶会之一（IEEE = Institute of Electrical and Electronics Engineers）。</td></tr>
+<tr><td>VOLE</td><td>Vector Oblivious Linear Evaluation</td><td>向量不经意线性求值：一种两方相关随机性；「VOLE-in-the-head」是用它构造 ZK 证明的一族方法。</td></tr>
+<tr><td>KiB / MB</td><td>kibibyte / megabyte</td><td>1 KiB = 1024 字节；证明大小的单位。</td></tr>
+<tr><td>MAC</td><td>Message Authentication Code</td><td>消息认证码；Longfellow 用随机 MAC 检查两个域里的 witness 是同一份。</td></tr>
+<tr><td>GF(2<sup>128</sup>) / F<sub>q</sub></td><td>Galois Field / 素数域</td><td>元素为 128 bit 串的二元有限域 / 整数模素数 q 的有限域。</td></tr>
+<tr><td>MPC</td><td>Multi-Party Computation</td><td>多方安全计算（你的老本行）。</td></tr>
+<tr><td>SHIELD</td><td>（你的项目名）</td><td>门限 ML-DSA：一个 CA 下 n 台签名服务器在 MPC 里执行未修改的 FIPS 204 签名，输出标准签名（IEEE S&amp;P 2026，共同一作）。</td></tr>
+<tr><td>CA</td><td>Certificate Authority</td><td>证书颁发机构，即签发方。</td></tr>
+<tr><td>SPDZ</td><td>Damgård–Pastro–Smart–Zakarias（2012），念 "speedz"</td><td>作者首字母；用 MAC 认证 share 的恶意安全算术 MPC 协议。</td></tr>
+<tr><td>WRK17</td><td>Wang–Ranellucci–Katz 2017</td><td>作者首字母 + 年份；认证混淆电路（authenticated garbling）的恶意安全布尔 MPC 协议。</td></tr>
+<tr><td>daBits</td><td>doubly-authenticated bits</td><td>同一个随机比特在算术域和二元域里各有一份认证 share，用来在 SPDZ 与 WRK17 之间搬数据。</td></tr>
+<tr><td>Verilog / Yosys / Bristol</td><td>硬件描述语言 / 开源综合工具 / Bristol Fashion 电路格式</td><td>你在 SHIELD 里生成布尔电路的流水线：用 Verilog 写，Yosys 综合，输出 Bristol 格式（University of Bristol 的 Nigel Smart 等人定的 MPC 电路格式）。</td></tr>
+<tr><td>Lean</td><td>Lean 4 定理证明器</td><td>用来机器检查数学证明 / 程序正确性的工具。</td></tr>
+</table>
+</details>
+
+<h2>1. 所有人在证明的是同一件事</h2>
+<p>先把本课所有工作共同的黑盒定下来。下面每个工作都在填这张卡片，区别只在「怎么做」和「多快」。</p>
+<div class="io"><dl>
+  <dt>陈述</dt><dd>statement（公开输入）：ML-DSA 公钥（或「某个可接受的公钥」）+ 被签的消息</dd>
+  <dt>证据</dt><dd>witness（只有 prover 有）：一个 ML-DSA 签名</dd>
+  <dt>输出</dt><dd>一个 ZK 证明 π：「我持有一个能被这个公钥验证通过的签名」—— 这叫<strong>签名持有证明（proof of possession）</strong></dd>
+  <dt>比较维度</dt><dd>prover 时间、证明大小、是否需要修改 ML-DSA 标准、是否能隐藏公钥</dd>
+</dl></div>
+
+<h2>2. 他们（Google）已经做了什么</h2>
+<div class="io"><dl>
+  <dt>工作</dt><dd><strong>Longfellow 自己的 ML-DSA 电路</strong>（实验性测试电路）</dd>
+  <dt>输入</dt><dd>statement：ML-DSA-44 或 -65 公钥 + 消息；witness：签名</dd>
+  <dt>输出</dt><dd>Longfellow 证明</dd>
+  <dt>数字</dt><dd>ML-DSA-44 签名持有证明 <strong>858 ms（Mac M4，即搭载 Apple M4 芯片的 Mac）</strong></dd>
+  <dt>结论</dt><dd>已经能跑，但标着 experimental、没做形式化验证；abhi 说 ML-DSA 的形式化「更难」</dd>
+</dl></div>
 <ul>
-  <li><strong>ML-DSA 电路已在 repo 里</strong>：<code>lib/circuits/tests/pq/ml_dsa/</code>（ML-DSA-44、-65），2026-02 首次提交，2026-07 最后一次改动。头注释列出 SampleInBall（受约束的 Fisher–Yates）、NTT 域矩阵乘、UseHint（"Interval Shifting"）、z 的范围检查、<code>SHAKE256(μ‖w1Encode) == c̃</code>。<span class="cite"><a href="https://github.com/longfellow-zk/longfellow-zk/tree/main/lib/circuits/tests/pq/ml_dsa">repo</a></span></li>
-  <li>README 原话：这些是 <em>"experimental circuits ... not been carefully vetted ... should not be used in a production use case"</em>；SHA-3 电路写着 <em>"DO NOT USE IN PRODUCTION"</em>，每 6 轮 commit 一次状态（<code>sha3_slicing.h</code>）。</li>
-  <li>IETF 125 / 126 公开数字：ML-DSA-44 签名持有证明 <strong>858 ms（Mac M4）</strong>；IETF 126 那套 slide 的标题就是 <strong>"libZK: PQ zero knowledge"</strong>。<span class="cite"><a href="https://datatracker.ietf.org/meeting/126/materials/slides-126-cfrg-longfellow-zk-00">IETF 126</a></span></li>
-  <li>abhi 在 IETF 126 CFRG 会议纪要里的原话：<em>"We have done formal verif for ECDSA. We have proven that our circuit is equivalent to the spec. ML-DSA is more difficult to do."</em> 以及 <em>"there are at least 3 other groups that are developing circuits"</em>。<span class="cite"><a href="https://datatracker.ietf.org/doc/minutes-126-cfrg-202607220700/">minutes</a></span></li>
+  <li><strong>ML-DSA 电路已在代码仓库里</strong>：<code>lib/circuits/tests/pq/ml_dsa/</code>（ML-DSA-44、-65），2026-02 首次提交，2026-07 最后一次改动。<span class="cite"><a href="https://github.com/longfellow-zk/longfellow-zk/tree/main/lib/circuits/tests/pq/ml_dsa">repo</a></span></li>
+  <li>README（仓库说明文件）原话：这些是 <em>"experimental circuits ... not been carefully vetted ... should not be used in a production use case"</em>；SHA-3 电路写着 <em>"DO NOT USE IN PRODUCTION"</em>（「不要用于生产环境」）。</li>
+  <li>IETF 125 / 126（IETF = Internet Engineering Task Force，互联网工程任务组）公开了上面的 858 ms；IETF 126 那套幻灯片的标题就是 <strong>"libZK: PQ zero knowledge"</strong>（libZK 是这个库在幻灯片里的名字，PQ = Post-Quantum 后量子）。<span class="cite"><a href="https://datatracker.ietf.org/meeting/126/materials/slides-126-cfrg-longfellow-zk-00">IETF 126</a></span></li>
+  <li>abhi 在 IETF 126 <strong>CFRG</strong>（Crypto Forum Research Group，IETF 体系里审密码算法的小组）会议纪要里的原话：<em>"We have done formal verif for ECDSA. We have proven that our circuit is equivalent to the spec. ML-DSA is more difficult to do."</em>（formal verif = formal verification，形式化验证：用机器证明电路和规范等价。）以及 <em>"there are at least 3 other groups that are developing circuits"</em>。<span class="cite"><a href="https://datatracker.ietf.org/doc/minutes-126-cfrg-202607220700/">minutes</a></span></li>
 </ul>
+<details class="how">
+<summary>电路里检查了哪些步骤（头注释）</summary>
+<p>电路头注释列出的检查：SampleInBall（从签名里的挑战种子展开出挑战多项式，用受约束的 Fisher–Yates 洗牌实现）、NTT（Number Theoretic Transform 数论变换）域里的矩阵乘、UseHint（用签名里的 hint 修正高位比特，注释里叫 "Interval Shifting"）、签名向量 z 的范围检查，以及最后的哈希比对 <code>SHAKE256(μ‖w1Encode) == c̃</code>（SHAKE256 = SHA-3 家族里可变输出长度的哈希）。SHA-3 电路每 6 轮把 Keccak 状态承诺一次（<code>sha3_slicing.h</code>）。各步的输入输出见第 0003 课。</p>
+</details>
 <div class="warn">所以：你冷邮件里的观察是对的，但<strong>对他们不是新闻</strong>。面谈里别再把它当发现讲，把它当「我们看到的是同一件事」的共同语言，然后迅速转到下面的开放问题。</div>
 
-<h2>2. 最近两周的三篇（都以 Longfellow 为基线）</h2>
+<h2>3. 最近两周的三篇（都以 Longfellow 为基线）</h2>
+<p>三篇都发在 <strong>ePrint</strong>（IACR Cryptology ePrint Archive，密码学预印本网站）上，都填第 1 节那张卡片。先看黑盒对比：</p>
 <table>
-<tr><th>工作</th><th>做法</th><th>数字</th></tr>
-<tr><td><strong>GordieHowe</strong>（Sharp &amp; Grubbs, UMich；<a href="https://eprint.iacr.org/2026/2615">ePrint 2026/2615</a>，10-23）</td><td>多域语言 + Lean 认证的编译器；批量 Keccak</td><td>ML-DSA-44 签名持有证明 87.3 ms / 549 KiB（量子参数），<em>"70.2× faster ... than an optimized Longfellow circuit"</em>；把 Longfellow 的慢归因于逐块跨域 MAC（51%）和未批量化的 Keccak</td></tr>
-<tr><td><strong>Nowhere Man</strong>（NTT；<a href="https://eprint.iacr.org/2026/2472">ePrint 2026/2472</a>，S&amp;P 2027）</td><td>ML-DSA device binding，在 Longfellow 上把验签拆成比特部分和格部分</td><td>说 850 ms <em>"impractical ... requires several calls to SHAKE"</em>；ML-DSA-65 拆分后约 485–562 ms</td></tr>
-<tr><td><strong>edaBitE</strong>（Baum &amp; Beckmann, DTU；<a href="https://eprint.iacr.org/2026/2473">ePrint 2026/2473</a>）</td><td>VOLE-in-the-head，证明<strong>未修改</strong>的 ML-DSA 签名</td><td>盲签名约 1 MB，生成不到 1 秒</td></tr>
+<tr><th>工作</th><th>改不改 ML-DSA 标准</th><th>交出的数字</th><th>一句话结论</th></tr>
+<tr><td><strong>GordieHowe</strong></td><td>不改</td><td>ML-DSA-44：87.3 ms / 549 KiB</td><td>比 Longfellow 基线快约 70 倍</td></tr>
+<tr><td><strong>Nowhere Man</strong></td><td>不改</td><td>ML-DSA-65：约 485–562 ms</td><td>拆分验签，用于 device binding</td></tr>
+<tr><td><strong>edaBitE</strong></td><td>不改</td><td>约 1 MB，不到 1 秒</td><td>换了一种证明系统（VOLE-in-the-head）</td></tr>
 </table>
-<p>更早的路线：Cloudflare / Policharla 等的 zkDilithium（把 SHA3 换成 ZK 友好的 Poseidon —— <strong>改了标准</strong>）；Jeudy–Roux-Langlois–Sanders、Bootle–Lyubashevsky 等的格专用凭证方案（<strong>不是 FIPS 204</strong>）。Longfellow 路线的卖点是：<strong>证明未修改的标准签名</strong>。这和 SHIELD「输出标准 ML-DSA 签名、verifier 不改」是同一种哲学。</p>
 
-<h2>3. 开放问题 → 你能接哪几个</h2>
+<figure>
+<svg viewBox="0 0 640 230" width="100%" role="img" aria-label="ML-DSA-in-ZK 路线图：左边改了标准，右边证明未修改的 FIPS 204，并按 prover 时间画条">
+  <rect x="5" y="5" width="195" height="215" rx="6" fill="none" stroke="currentColor" stroke-dasharray="4 3"/>
+  <text x="102" y="26" text-anchor="middle" font-size="13">改了标准</text>
+  <text x="102" y="43" text-anchor="middle" font-size="11">现有 verifier 不认</text>
+  <rect x="20" y="62" width="165" height="56" rx="4" fill="none" stroke="currentColor"/>
+  <text x="102" y="85" text-anchor="middle" font-size="12">zkDilithium</text>
+  <text x="102" y="104" text-anchor="middle" font-size="11">SHA-3 换成 Poseidon</text>
+  <rect x="20" y="135" width="165" height="56" rx="4" fill="none" stroke="currentColor"/>
+  <text x="102" y="158" text-anchor="middle" font-size="12">格专用凭证方案</text>
+  <text x="102" y="177" text-anchor="middle" font-size="11">不是 FIPS 204</text>
+  <rect x="215" y="5" width="420" height="215" rx="6" fill="none" stroke="currentColor"/>
+  <text x="425" y="26" text-anchor="middle" font-size="13">证明未修改的 FIPS 204（Longfellow 路线的卖点）</text>
+  <text x="228" y="60" font-size="12">Google 电路</text>
+  <text x="228" y="75" font-size="11">ML-DSA-44 · 858 ms</text>
+  <rect x="365" y="57" width="214" height="14" fill="currentColor" opacity=".55"/>
+  <text x="228" y="102" font-size="12">GordieHowe</text>
+  <text x="228" y="117" font-size="11">ML-DSA-44 · 87.3 ms</text>
+  <rect x="365" y="99" width="22" height="14" fill="currentColor" opacity=".55"/>
+  <text x="228" y="144" font-size="12">Nowhere Man</text>
+  <text x="228" y="159" font-size="11">ML-DSA-65 · 485–562 ms</text>
+  <rect x="365" y="141" width="121" height="14" fill="currentColor" opacity=".55"/>
+  <rect x="486" y="141" width="20" height="14" fill="currentColor" opacity=".25"/>
+  <text x="228" y="186" font-size="12">edaBitE</text>
+  <text x="228" y="201" font-size="11">VOLE · &lt;1 s · ~1 MB</text>
+  <rect x="365" y="183" width="250" height="14" fill="none" stroke="currentColor" stroke-dasharray="4 3"/>
+  <line x1="365" y1="50" x2="365" y2="205" stroke="currentColor" stroke-width=".5"/>
+  <text x="365" y="215" text-anchor="middle" font-size="10">0</text>
+  <text x="615" y="215" text-anchor="middle" font-size="10">1 s</text>
+</svg>
+<figcaption>横条 = prover 时间（0 到 1 秒）。参数集不同（44 vs 65），只看量级；edaBitE 只报了「不到 1 秒」，所以画成虚线框。数字出处见下面各卡片。</figcaption>
+</figure>
+<div class="io"><dl>
+  <dt>工作</dt><dd><strong>GordieHowe</strong>（Sharp &amp; Grubbs, UMich = University of Michigan 密歇根大学；<a href="https://eprint.iacr.org/2026/2615">ePrint 2026/2615</a>，10-23）</dd>
+  <dt>输入</dt><dd>同第 1 节：ML-DSA-44 公钥 + 消息；witness = 签名</dd>
+  <dt>输出</dt><dd>证明，87.3 ms 生成、549 KiB（量子安全参数）</dd>
+  <dt>负责</dt><dd>一个新的电路语言 + 编译器，让电路的不同部分用不同的域，并批量处理 Keccak</dd>
+  <dt>结论</dt><dd><em>"70.2× faster ... than an optimized Longfellow circuit"</em>；把 Longfellow 的慢归因于逐块跨域 MAC（占 51%）和未批量化的 Keccak</dd>
+</dl></div>
+<details class="how">
+<summary>GordieHowe 的做法</summary>
+<p>多域（multi-field）电路语言，配一个在 Lean（Lean 4 定理证明器）里认证过正确性的编译器；Keccak 置换批量化后 prover 快 17.1×。跨域 MAC（Message Authentication Code，消息认证码）是 Longfellow 用来证明「两个域里承诺的是同一份 witness」的检查，GordieHowe 测得它占 ML-DSA-44 prover 时间的 51%。</p>
+</details>
+
+<div class="io"><dl>
+  <dt>工作</dt><dd><strong>Nowhere Man</strong>（作者来自 NTT —— 日本电信公司 Nippon Telegraph and Telephone，不是数论变换；<a href="https://eprint.iacr.org/2026/2472">ePrint 2026/2472</a>，将发表于 IEEE S&amp;P 2027，即 IEEE Symposium on Security and Privacy）</dd>
+  <dt>输入</dt><dd>ML-DSA 公钥（device 公钥）+ 会话消息；witness = 签名</dd>
+  <dt>输出</dt><dd>ML-DSA-65 证明，约 485–562 ms</dd>
+  <dt>负责</dt><dd>ML-DSA 版的 <strong>device binding</strong>（设备绑定：证明这次出示是由手机里的那把密钥签的）</dd>
+  <dt>结论</dt><dd>认为 Longfellow 的 850 ms <em>"impractical ... requires several calls to SHAKE"</em>，于是把验签拆开做</dd>
+</dl></div>
+<details class="how">
+<summary>Nowhere Man 的做法</summary>
+<p>在 Longfellow 上把 ML-DSA 验签拆成两部分：比特运算部分（SHAKE 哈希）和格运算部分（多项式乘法、范围检查），分别处理再连起来。</p>
+</details>
+
+<div class="io"><dl>
+  <dt>工作</dt><dd><strong>edaBitE</strong>（Baum &amp; Beckmann, DTU = Technical University of Denmark 丹麦技术大学；<a href="https://eprint.iacr.org/2026/2473">ePrint 2026/2473</a>）</dd>
+  <dt>输入</dt><dd>ML-DSA 公钥 + 消息；witness = <strong>未修改</strong>的 ML-DSA 签名</dd>
+  <dt>输出</dt><dd>盲签名证明约 1 MB，生成不到 1 秒</dd>
+  <dt>负责</dt><dd>用另一族证明系统 <strong>VOLE-in-the-head</strong> 来证（VOLE = Vector Oblivious Linear Evaluation，向量不经意线性求值）</dd>
+  <dt>结论</dt><dd>不是 Longfellow 的改进，而是另一条技术路线</dd>
+</dl></div>
+
+<h3>更早的路线：改了标准的方案</h3>
+<ul>
+  <li>Cloudflare / Policharla 等的 <strong>zkDilithium</strong>：把 ML-DSA 里的 SHA-3 换成 ZK 友好的哈希 Poseidon —— <strong>改了标准</strong>，现有 verifier 不认。</li>
+  <li>Jeudy–Roux-Langlois–Sanders、Bootle–Lyubashevsky 等的格专用凭证方案：<strong>不是 FIPS 204</strong>（FIPS = Federal Information Processing Standard；FIPS 204 就是 ML-DSA 标准）。</li>
+</ul>
+<p>Longfellow 路线的卖点是：<strong>证明未修改的标准签名</strong>。这和 <strong>SHIELD</strong>（你的门限 ML-DSA：一个 CA 下 n 台签名服务器在 MPC 里执行未修改的 FIPS 204 签名；CA = Certificate Authority 证书颁发机构，MPC = Multi-Party Computation 多方安全计算）「输出标准 ML-DSA 签名、verifier 不改」是同一种哲学。</p>
+
+<h2>4. 开放问题 → 你能接哪几个</h2>
 <table>
 <tr><th>开放问题</th><th>谁点出来的</th><th>你的相关证据</th></tr>
-<tr><td>(a) 隐藏公钥：ExpandA 和 tr 进电路（≈ 96 + 10 次置换）</td><td>Longfellow 论文的 device-key 隐藏需求；Nowhere Man</td><td>你在 SHIELD 里把 SHAKE / Keccak-f 当布尔电路做过</td></tr>
-<tr><td>(b) Keccak 布局：每 6 轮切片 vs 批量化</td><td>GordieHowe：批量化的 prover 快 17.1×</td><td>Verilog → Yosys → Bristol 电路流水线；SampleInBall 890K → 355K 门</td></tr>
-<tr><td>(c) 跨域一致性（GF(2<sup>128</sup>) ↔ F<sub>q</sub>）的代价</td><td>GordieHowe：MAC 占 51%</td><td>SHIELD 用 daBits 在算术 / 布尔 share 之间转换 —— 同一个问题的 MPC 版本</td></tr>
+<tr><td>(a) 隐藏公钥：ExpandA（从公钥种子展开公开矩阵）和 tr（公钥的哈希）进电路（≈ 96 + 10 次 Keccak 置换）</td><td>Longfellow 论文的 device-key 隐藏需求；Nowhere Man</td><td>你在 SHIELD 里把 SHAKE / Keccak-f 当布尔电路做过</td></tr>
+<tr><td>(b) Keccak 布局：每 6 轮切片 vs 批量化</td><td>GordieHowe：批量化的 prover 快 17.1×</td><td>Verilog → Yosys → Bristol 电路流水线（硬件描述语言 → 开源综合工具 → Bristol Fashion MPC 电路格式）；SampleInBall 890K → 355K 门</td></tr>
+<tr><td>(c) 跨域一致性（GF(2<sup>128</sup>) 二元域 ↔ F<sub>q</sub> 素数域）的代价</td><td>GordieHowe：MAC 占 51%</td><td>SHIELD 用 daBits 在算术 / 布尔 share 之间转换 —— 同一个问题的 MPC 版本</td></tr>
 <tr><td>(d) ML-DSA 电路与规范等价的形式化验证</td><td>abhi："ML-DSA is more difficult to do"</td><td>你的强项是<strong>找实现 bug</strong>（threshold-Falcon 两个静默 bug），不是 Lean —— 说清楚</td></tr>
 <tr><td>(e) 发证方一侧：issuer 用 ML-DSA 签发时的私钥保护</td><td>（你自己的角度）</td><td><strong>SHIELD 正是这个</strong>：n 台服务器门限签出标准 ML-DSA 签名</td></tr>
 </table>
-<p>(c) 这一行值得多想一秒：SHIELD 里的 <strong>daBits</strong> 就是「同一个随机比特在算术域和二元域里各有一份 share」，用来在 SPDZ 和 WRK17 之间搬数据。Longfellow 里两个证明系统之间用随机 MAC 证明 witness 一致，是同一个「跨域搬运」问题的 ZK 版本。可以把它说成一个你想学的类比，不要说成你已经有解法。</p>
+<figure>
+<svg viewBox="0 0 640 210" width="100%" role="img" aria-label="开放问题在凭证链上的位置：发证方一侧是 (e)，持有人一侧的电路是 (a)(b)(c)(d)">
+  <defs><marker id="m4a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+  <rect x="5" y="20" width="170" height="70" rx="6" fill="none" stroke="currentColor"/>
+  <text x="90" y="45" text-anchor="middle" font-size="13">发证方（签发侧）</text>
+  <text x="90" y="65" text-anchor="middle" font-size="11">n 台服务器门限签名</text>
+  <text x="90" y="80" text-anchor="middle" font-size="11">输出标准 ML-DSA 签名</text>
+  <rect x="235" y="20" width="200" height="70" rx="6" fill="none" stroke="currentColor"/>
+  <text x="335" y="45" text-anchor="middle" font-size="13">持有人手机（prover）</text>
+  <text x="335" y="65" text-anchor="middle" font-size="11">Longfellow ML-DSA 电路</text>
+  <text x="335" y="80" text-anchor="middle" font-size="11">输出证明 π</text>
+  <rect x="495" y="20" width="140" height="70" rx="6" fill="none" stroke="currentColor"/>
+  <text x="565" y="45" text-anchor="middle" font-size="13">依赖方</text>
+  <text x="565" y="65" text-anchor="middle" font-size="11">（verifier）</text>
+  <text x="565" y="80" text-anchor="middle" font-size="11">接受 / 拒绝</text>
+  <line x1="175" y1="55" x2="235" y2="55" stroke="currentColor" marker-end="url(#m4a)"/>
+  <text x="205" y="48" text-anchor="middle" font-size="10">签名</text>
+  <line x1="435" y1="55" x2="495" y2="55" stroke="currentColor" marker-end="url(#m4a)"/>
+  <text x="465" y="48" text-anchor="middle" font-size="10">π</text>
+  <line x1="90" y1="90" x2="90" y2="120" stroke="currentColor" stroke-dasharray="3 3"/>
+  <text x="90" y="138" text-anchor="middle" font-size="12">(e) 私钥保护</text>
+  <text x="90" y="155" text-anchor="middle" font-size="11">= SHIELD 已做完</text>
+  <line x1="335" y1="90" x2="335" y2="112" stroke="currentColor" stroke-dasharray="3 3"/>
+  <text x="335" y="130" text-anchor="middle" font-size="11">(a) 藏公钥  (b) Keccak 布局</text>
+  <text x="335" y="148" text-anchor="middle" font-size="11">(c) 跨域 MAC  (d) 形式化</text>
+  <text x="335" y="166" text-anchor="middle" font-size="11">= 持有人侧的开放问题</text>
+  <text x="565" y="138" text-anchor="middle" font-size="11">不需要改</text>
+  <text x="320" y="200" text-anchor="middle" font-size="11">你已经站在链条左端；下一步是中间那一格</text>
+</svg>
+<figcaption>五个开放问题落在凭证链的哪一段。签发侧 (e) 是你的 SHIELD；持有人侧 (a)–(d) 是 Longfellow 电路里的问题。</figcaption>
+</figure>
+<p>(c) 这一行值得多想一秒。黑盒对比：</p>
+<div class="grid2">
+<div class="io"><dl>
+  <dt>MPC 版</dt><dd>SHIELD 里的 <strong>daBits</strong>（doubly-authenticated bits）</dd>
+  <dt>输入</dt><dd>一个值在算术域里的 share</dd>
+  <dt>输出</dt><dd>同一个值在二元域里的 share</dd>
+  <dt>负责</dt><dd>在 <strong>SPDZ</strong>（Damgård–Pastro–Smart–Zakarias，算术 MPC）和 <strong>WRK17</strong>（Wang–Ranellucci–Katz 2017，认证混淆电路，布尔 MPC）之间搬数据</dd>
+</dl></div>
+<div class="io"><dl>
+  <dt>ZK 版</dt><dd>Longfellow 的<strong>跨域随机 MAC</strong></dd>
+  <dt>输入</dt><dd>两个域的证明各自承诺的 witness</dd>
+  <dt>输出</dt><dd>「两份是同一个 witness」</dd>
+  <dt>负责</dt><dd>把 P-256 域的证明和 GF(2<sup>128</sup>) 的证明连起来</dd>
+</dl></div>
+</div>
+<p>两者是同一个「跨域搬运」问题。可以把它说成一个你想学的类比，不要说成你已经有解法。</p>
 
-<h2>4. 怎么谈竞品（话术）</h2>
+<h2>5. 怎么谈竞品（话术）</h2>
 <div class="warn"><strong>2026-10-28 决定：面谈里不主动提这些竞品。</strong>第一次见面，重点放在你做过什么、和他们有什么连接。下面的话术只在<strong>他们自己提起</strong>时使用。</div>
 <div class="say">I saw GordieHowe and the Nowhere Man paper this month — both use your ML-DSA circuit as the baseline, which I read as a sign that Longfellow is the reference everyone measures against. What I found interesting is that they both point at the same two costs: Keccak layout and the cross-field link. How do you think about those trade-offs for Longfellow, given that you care about a standardized, auditable spec?</div>
-<p>原则：① 主动提一次，显得你做了功课；② 用问题收尾，把话语权交给他们；③ 不复述「70× 更快」这种刺耳的数字，除非他们自己提；④ 他们提到时，承认 GordieHowe 的数字，然后问部署约束（标准化、审计、Rust 重写、形式化）—— 这些才是 Google 在乎、而论文不在乎的。</p>
+<p>原则：① 主动提一次，显得你做了功课；② 用问题收尾，把话语权交给他们；③ 不复述「70× 更快」这种刺耳的数字，除非他们自己提；④ 他们提到时，承认 GordieHowe 的数字，然后问部署约束（标准化、审计、Rust 语言重写、形式化）—— 这些才是 Google 在乎、而论文不在乎的。</p>
 <div class="warn">别说：「GordieHowe 证明了 Longfellow 太慢」「你们的 Keccak 电路设计有问题」。Google 的电路是标着 experimental 的测试电路，论文拿来对比的是它。</div>
 
 <h2>自测</h2>
@@ -81,7 +253,7 @@
   <div class="why">daBits 让同一个比特在两个域各有 share —— 「跨域搬运」的 MPC 版本。</div>
 </div>
 <div class="recall">
-  <div class="q">回忆练习：从表 3 里挑两个你最有底气的开放问题，各写一句「我能贡献什么 + 第一周做什么」。</div>
+  <div class="q">回忆练习：从第 4 节的表里挑两个你最有底气的开放问题，各写一句「我能贡献什么 + 第一周做什么」。</div>
   <textarea></textarea>
 </div>
 

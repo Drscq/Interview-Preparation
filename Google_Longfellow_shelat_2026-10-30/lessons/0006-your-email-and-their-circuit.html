@@ -10,27 +10,128 @@
 <body>
 <main>
 <header class="lesson">
-  <div class="kicker">Lesson 0006 · 约 30 分钟（含读源码 15 分钟） · <a href="../index.html">返回目录</a></div>
+  <div class="kicker">Lesson 0006 · 约 40 分钟（含读源码 15 分钟） · <a href="../index.html">返回目录</a></div>
   <h1>你邮件里那句话，和他们已经写好的 ML-DSA 电路</h1>
-  <p class="goal"><strong>这一课的收获：</strong>① 能用自己的话解释冷邮件里那个观察（abhi 正是因为它回的信）；② 亲手读过他们的 <code>ml_dsa_circuit.h</code> 头注释和主函数，面谈里可以<strong>诚实地</strong>说 "I looked at your ML-DSA test circuit"。建议在第 <a href="0003-ml-dsa-verify-anatomy.html">0003</a> 课之后读。</p>
+  <p class="goal"><strong>这一课的收获：</strong>① 能用自己的话解释冷邮件里那个观察（abhi 正是因为它回的信）；② 读过他们的 <code>ml_dsa_circuit.h</code> 头注释和主函数，能在<strong>输入 / 输出层面</strong>讲清电路里每一步做什么，面谈里可以<strong>诚实地</strong>说 "I looked at your ML-DSA test circuit"。建议在第 <a href="0003-ml-dsa-verify-anatomy.html">0003</a> 课之后读。</p>
 </header>
+
+<p><strong>怎么读这一课：</strong>每个组件先给一张「黑盒卡片」（输入、输出、负责什么、哪些输入公开 / 哪些秘密）；卡片下面折叠的「细节（可跳过）」讲电路代码具体怎么写，面谈不需要。ZK 的基本名词（statement、witness、prover、verifier）见<a href="0001-what-longfellow-proves.html">第 0001 课第 0 节</a>。</p>
+
+<details open>
+<summary><strong>本课缩写速查</strong>（正文里每个缩写第一次出现时也会写全称和意思）</summary>
+<table>
+<tr><th>缩写</th><th>全称</th><th>一句话意思</th></tr>
+<tr><td>ZK</td><td>Zero-Knowledge</td><td>零知识：让对方相信一件事为真，但不泄露为什么为真。</td></tr>
+<tr><td>MPC</td><td>Multi-Party Computation</td><td>多方安全计算：多方在不暴露各自秘密的情况下联合算一个函数。</td></tr>
+<tr><td>ECDSA</td><td>Elliptic Curve Digital Signature Algorithm</td><td>椭圆曲线数字签名算法；今天数字证件用的经典签名。</td></tr>
+<tr><td>ML-DSA</td><td>Module-Lattice-Based Digital Signature Algorithm</td><td>基于模格的数字签名算法，NIST 的后量子签名标准 FIPS 204（原名 CRYSTALS-Dilithium）。</td></tr>
+<tr><td>ML-DSA-44</td><td>ML-DSA 参数集 44</td><td>最小的一档参数；「44」指公开矩阵 A 是 4×4 个多项式。</td></tr>
+<tr><td>FIPS</td><td>Federal Information Processing Standard</td><td>美国联邦信息处理标准；FIPS 204 = ML-DSA。</td></tr>
+<tr><td>NIST</td><td>National Institute of Standards and Technology</td><td>美国国家标准与技术研究院。</td></tr>
+<tr><td>SHAKE / SHAKE128 / SHAKE256</td><td>Secure Hash Algorithm + KECCAK 的合成名（FIPS 202 没有官方展开），128 / 256-bit 安全强度</td><td>SHA-3 家族里「想要多长输出就挤多长」的哈希（XOF = eXtendable-Output Function）。</td></tr>
+<tr><td>Keccak</td><td>（算法名，不是缩写）</td><td>SHA-3 / SHAKE 的底层置换 Keccak-f[1600]；电路里最贵的部分。</td></tr>
+<tr><td>NTT</td><td>Number Theoretic Transform</td><td>数论变换（有限域上的 FFT）；ML-DSA 用它做快速多项式乘法。</td></tr>
+<tr><td>XOR / AND</td><td>exclusive OR / AND</td><td>异或 / 与，最基本的比特运算；「AND 门」是布尔电路里的与门。</td></tr>
+<tr><td>Mcycles</td><td>million (CPU) cycles</td><td>百万个 CPU 时钟周期，衡量计算量的单位。</td></tr>
+<tr><td>SHIELD</td><td>（你的项目名）</td><td>你的门限 ML-DSA 工作：多台服务器在 MPC 里联合签出标准 ML-DSA 签名。</td></tr>
+<tr><td>IETF</td><td>Internet Engineering Task Force</td><td>互联网工程任务组；IETF 125 / 126 是会议编号（2026 年 3 月 / 7 月）。</td></tr>
+<tr><td>M4</td><td>Apple M4 芯片</td><td>benchmark 用的 Mac 处理器。</td></tr>
+<tr><td>pk</td><td>public key</td><td>公钥。</td></tr>
+</table>
+</details>
 
 <h2>1. 你在邮件里到底说了什么</h2>
 <p>原文（10-28 发给 abhi）：</p>
 <blockquote><em>"If credential issuers eventually sign with ML-DSA, proving signature verification in zero knowledge becomes mostly a Keccak problem. I saw the same cost structure from the MPC side: in SHIELD ... the Boolean work (Keccak, decomposition, norm checks) dominates, while polynomial arithmetic is under 0.2% of online computation. I would be curious whether SHAKE is also the bottleneck you expect for ML-DSA in Longfellow."</em></blockquote>
+<p>邮件里的词：ML-DSA（Module-Lattice-Based Digital Signature Algorithm，基于模格的数字签名算法，NIST 的后量子签名标准）；Keccak 是 SHA-3 家族哈希的底层置换；SHAKE（Secure Hash Algorithm + KECCAK 的合成名（FIPS 202 没有官方展开））是基于 Keccak 的可变长度输出哈希；MPC（Multi-Party Computation，多方安全计算）；SHIELD 是你的门限 ML-DSA 项目；"decomposition" = 把一个数拆成高位和低位；"norm checks" = 检查向量的每个系数都足够小。</p>
 <p>拆成三步：</p>
 <ol>
-  <li><strong>场景。</strong>今天的数字证件由发证方用 ECDSA 签名，Longfellow 让持有人在 ZK 里证明「我有一个有效签名」。等发证方换成后量子签名 ML-DSA，持有人要在 ZK 里证明的就变成「我有一个有效的 <strong>ML-DSA</strong> 签名」—— 也就是在电路里跑一遍 ML-DSA 验签。</li>
-  <li><strong>判断。</strong>ML-DSA 验签由两类操作组成：<strong>格算术</strong>（NTT、多项式乘法，都是 mod q 的加法和乘法）和<strong>哈希</strong>（SHAKE，也就是 Keccak，全是比特级的 XOR / AND / 移位）。如果证明系统的域就是 mod q，格算术几乎是「原生」的、很便宜；Keccak 则要把每一个比特操作都变成约束，很贵。所以成本主要落在 Keccak 上。</li>
-  <li><strong>你的证据。</strong>SHIELD 把 ML-DSA <strong>签名</strong>放进 MPC：多项式乘法在 share 上是线性的（几乎免费），而 Keccak、分解、范围检查要用混淆电路一门一门地算。实测 Keccak 两步 341 Mcycles，全部多项式乘法只有 0.70 Mcycles。MPC 和 ZK 是两种不同的东西，但「线性的便宜、比特级非线性的贵」这个规律在两边都成立。</li>
+  <li><strong>场景。</strong>今天的数字证件由发证方用 ECDSA（Elliptic Curve Digital Signature Algorithm，椭圆曲线数字签名算法）签名，Longfellow 让持有人在 ZK（Zero-Knowledge，零知识）里证明「我有一个有效签名」。等发证方换成后量子签名 ML-DSA，持有人要证明的就变成「我有一个有效的 <strong>ML-DSA</strong> 签名」—— 也就是在电路里跑一遍 ML-DSA 验签。</li>
+  <li><strong>判断。</strong>ML-DSA 验签由两类操作组成：<strong>格算术</strong>（NTT = Number Theoretic Transform 数论变换、多项式乘法，都是 mod q 的加法和乘法）和<strong>哈希</strong>（SHAKE，也就是 Keccak，全是比特级的 XOR 异或 / AND 与 / 移位）。如果证明系统的域就是 mod q，格算术几乎是「原生」的、很便宜；Keccak 则要把每一个比特操作都变成约束，很贵。所以成本主要落在 Keccak 上。</li>
+  <li><strong>你的证据。</strong>SHIELD 把 ML-DSA <strong>签名</strong>放进 MPC：多项式乘法在 share（秘密分享的份额）上是线性的（几乎免费），而 Keccak、分解、范围检查要用混淆电路一门一门地算。实测 Keccak 两步 341 Mcycles（百万 CPU 时钟周期），全部多项式乘法只有 0.70 Mcycles。MPC 和 ZK 是两种不同的东西，但「线性的便宜、比特级非线性的贵」这个规律在两边都成立。</li>
 </ol>
 <div class="say">My point in the email was simple: once the issuer signs with ML-DSA, the holder has to prove ML-DSA verification, and verification is lattice arithmetic plus SHAKE. The lattice arithmetic is cheap if your field is mod q; the SHAKE part is bit-level and that's where the cost goes. I saw exactly that split from the MPC side in SHIELD — Keccak was 341 Mcycles online and all the polynomial multiplication together was under one.</div>
 
 <h2>2. 他们已经有了：Longfellow 的 ML-DSA 测试电路</h2>
-<p>位置：<a href="https://github.com/longfellow-zk/longfellow-zk/tree/main/lib/circuits/tests/pq/ml_dsa"><code>lib/circuits/tests/pq/ml_dsa/</code></a>，2026-02 首次提交。他们在 IETF 125 / 126 上报过这个电路的数字：<strong>ML-DSA-44 签名持有证明 858 ms（Mac M4）</strong>。<span class="cite"><a href="https://datatracker.ietf.org/meeting/126/materials/slides-126-cfrg-longfellow-zk-00">IETF 126 slide 15</a></span></p>
+<p>位置：<a href="https://github.com/longfellow-zk/longfellow-zk/tree/main/lib/circuits/tests/pq/ml_dsa"><code>lib/circuits/tests/pq/ml_dsa/</code></a>（路径里的 pq = post-quantum，后量子），2026-02 首次提交。他们在 IETF（Internet Engineering Task Force，互联网工程任务组）第 125 / 126 次会议上报过这个电路的数字：<strong>ML-DSA-44 签名持有证明 858 ms（Mac M4，即 Apple M4 芯片）</strong>。ML-DSA-44 是最小的参数集，「44」指公开矩阵是 4×4 个多项式。<span class="cite"><a href="https://datatracker.ietf.org/meeting/126/materials/slides-126-cfrg-longfellow-zk-00">IETF 126 slide 15</a></span></p>
 <p>所以你邮件里的观察对他们<strong>不是新闻</strong> —— 他们自己就在做这件事。这反而是好事：你们讲的是同一个问题，abhi 才会说 "let's meet"。</p>
 
-<h3>头注释说了什么（<a href="https://github.com/longfellow-zk/longfellow-zk/blob/main/lib/circuits/tests/pq/ml_dsa/ml_dsa_circuit.h"><code>ml_dsa_circuit.h</code></a> 第 30–60 行）</h3>
+<h3>2.1 整个电路：黑盒视角</h3>
+<div class="io"><dl>
+  <dt>是什么</dt><dd>在 ZK 里检查「这个 ML-DSA 签名能通过验签」的电路，对应 FIPS 204（Federal Information Processing Standard 204，ML-DSA 标准）Algorithm 8 的大部分</dd>
+  <dt>公开输入<br>(statement)</dt><dd>公钥 pk（public key）的三样东西：已经展开好的矩阵 Â、NTT 形式的 t₁、公钥摘要 tr</dd>
+  <dt>秘密输入<br>(witness)</dt><dd>签名 (c̃, z, h)、消息代表值 μ、以及帮电路少算的辅助值（下面两个技巧里 prover 提供的答案）</dd>
+  <dt>输出</dt><dd>通过 / 不通过</dd>
+  <dt>证明了</dt><dd>「存在一个签名 (c̃, z, h)，在<strong>公开</strong>的公钥 (Â, NTT(t₁), tr) 下，对某个<strong>秘密</strong>的 μ 验证通过」</dd>
+  <dt>没证明</dt><dd>Â 确实是从公钥种子 ρ 展开的（ExpandA 不在电路里）；μ 确实是由 tr 和消息算出来的</dd>
+</dl></div>
+<p>签名三部分的意思：c̃ = 挑战的哈希种子（验签最后要重新算出它来比对）；z = 签名的「回应」向量（系数必须很小）；h = hint（提示比特，帮 verifier 修正舍入误差）。μ（mu，message representative 消息代表值）= 对公钥摘要 tr 和消息做的 64 字节哈希。</p>
+
+<h3>2.2 电路的五步流水线</h3>
+<p>头注释（<a href="https://github.com/longfellow-zk/longfellow-zk/blob/main/lib/circuits/tests/pq/ml_dsa/ml_dsa_circuit.h"><code>ml_dsa_circuit.h</code></a> 第 30–60 行）列了五步。先看整体结构图，再看每一步的输入输出：</p>
+<figure>
+<svg viewBox="0 0 640 300" width="100%" role="img" aria-label="ML-DSA 电路结构：公开输入、秘密输入、五个子电路和输出">
+  <defs><marker id="m6a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+  <rect x="5" y="2" width="150" height="34" rx="6" fill="none" stroke="currentColor" stroke-dasharray="4 3"/>
+  <text x="80" y="16" text-anchor="middle" font-size="11">ExpandA(ρ) → Â</text>
+  <text x="80" y="30" text-anchor="middle" font-size="11">电路外，≈96 Keccak</text>
+  <line x1="80" y1="36" x2="80" y2="50" stroke="currentColor" marker-end="url(#m6a)"/>
+  <rect x="5" y="52" width="150" height="56" rx="6" fill="none" stroke="currentColor"/>
+  <text x="80" y="74" text-anchor="middle" font-size="12">公开 statement</text>
+  <text x="80" y="94" text-anchor="middle" font-size="11">Â, NTT(t₁), tr</text>
+  <rect x="5" y="190" width="150" height="66" rx="6" fill="none" stroke="currentColor"/>
+  <text x="80" y="212" text-anchor="middle" font-size="12">秘密 witness</text>
+  <text x="80" y="230" text-anchor="middle" font-size="11">c̃, z, h, μ</text>
+  <text x="80" y="246" text-anchor="middle" font-size="11">+ prover 给的答案</text>
+  <rect x="185" y="110" width="110" height="46" rx="6" fill="none" stroke="currentColor"/>
+  <text x="240" y="130" text-anchor="middle" font-size="12">② A·z − c·t₁·2ᵈ</text>
+  <text x="240" y="147" text-anchor="middle" font-size="11">mod q，便宜</text>
+  <rect x="185" y="200" width="110" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="2.5"/>
+  <text x="240" y="220" text-anchor="middle" font-size="12">① SampleInBall</text>
+  <text x="240" y="237" text-anchor="middle" font-size="11">c̃ → c，Keccak</text>
+  <rect x="320" y="110" width="105" height="46" rx="6" fill="none" stroke="currentColor"/>
+  <text x="372" y="130" text-anchor="middle" font-size="12">③ UseHint</text>
+  <text x="372" y="147" text-anchor="middle" font-size="11">→ w′₁</text>
+  <rect x="320" y="200" width="105" height="46" rx="6" fill="none" stroke="currentColor"/>
+  <text x="372" y="220" text-anchor="middle" font-size="12">④ 范围检查</text>
+  <text x="372" y="237" text-anchor="middle" font-size="11">z 够小？</text>
+  <rect x="450" y="110" width="105" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="2.5"/>
+  <text x="502" y="130" text-anchor="middle" font-size="12">⑤ 哈希比对</text>
+  <text x="502" y="147" text-anchor="middle" font-size="11">== c̃？Keccak</text>
+  <rect x="575" y="150" width="60" height="56" rx="6" fill="none" stroke="currentColor"/>
+  <text x="605" y="174" text-anchor="middle" font-size="12">通过</text>
+  <text x="605" y="192" text-anchor="middle" font-size="12">/ 不通过</text>
+  <line x1="155" y1="90" x2="185" y2="125" stroke="currentColor" marker-end="url(#m6a)"/>
+  <line x1="155" y1="223" x2="185" y2="223" stroke="currentColor" marker-end="url(#m6a)"/>
+  <line x1="240" y1="200" x2="240" y2="158" stroke="currentColor" marker-end="url(#m6a)"/>
+  <line x1="295" y1="133" x2="320" y2="133" stroke="currentColor" marker-end="url(#m6a)"/>
+  <line x1="425" y1="133" x2="450" y2="133" stroke="currentColor" marker-end="url(#m6a)"/>
+  <line x1="555" y1="140" x2="575" y2="165" stroke="currentColor" marker-end="url(#m6a)"/>
+  <line x1="425" y1="223" x2="575" y2="195" stroke="currentColor" marker-end="url(#m6a)"/>
+  <text x="320" y="285" text-anchor="middle" font-size="11">粗框 = 要跑 Keccak（最贵）；虚线框 = 公钥公开时可以搬到电路外</text>
+</svg>
+<figcaption>他们的 ML-DSA 测试电路。左边两类输入，中间五个子电路，右边一个比特输出。</figcaption>
+</figure>
+<table>
+<tr><th>步骤</th><th>输入</th><th>输出 / 检查</th><th>贵不贵</th></tr>
+<tr><td>1. <strong>SampleInBall</strong>（把哈希种子变成挑战多项式）</td><td>c̃（秘密）</td><td>挑战多项式 c：256 个系数里恰好 τ 个是 ±1，其余是 0</td><td>贵（要跑 SHAKE256）</td></tr>
+<tr><td>2. <strong>矩阵 × 向量</strong></td><td>Â、t₁（公开），z、c（秘密）</td><td>w′<sub>approx</sub> = A·z − c·t₁·2<sup>d</sup>（「签名者当时的承诺值」的近似）</td><td>便宜（mod q 原生运算）</td></tr>
+<tr><td>3. <strong>UseHint</strong>（用提示修正高位）</td><td>w′<sub>approx</sub>、hint h</td><td>w′₁ = 修正后的高位比特</td><td>中等（要范围检查）</td></tr>
+<tr><td>4. <strong>范围检查</strong>（norm check）</td><td>z</td><td>检查 z 的每个系数绝对值 &lt; γ₁ − β（足够小）</td><td>中等</td></tr>
+<tr><td>5. <strong>哈希比对</strong></td><td>μ、w′₁</td><td>检查 SHAKE256(μ ‖ w′₁ 的编码) == c̃</td><td>贵（SHAKE256）</td></tr>
+</table>
+<p>对照 <a href="0003-ml-dsa-verify-anatomy.html">第 0003 课</a> 的 FIPS 204 Algorithm 8：第 8、9、10、12、13 行都在电路里；<strong>第 5 行 ExpandA、第 6 行 tr = H(pk)、第 7 行 μ 不在</strong>。</p>
+
+<div class="io"><dl>
+  <dt>不在电路里</dt><dd><strong>ExpandA</strong></dd>
+  <dt>输入</dt><dd>公钥里的 32 字节种子 ρ</dd>
+  <dt>输出</dt><dd>公开矩阵 Â（NTT 形式）</dd>
+  <dt>代价</dt><dd>用 SHAKE128 展开，ML-DSA-44 约 96 次 Keccak 置换</dd>
+  <dt>为什么能省</dt><dd>Â 直接作为<strong>公开输入</strong>给电路，verifier 自己在电路外展开即可 —— 前提是公钥可以公开（藏公钥的版本就省不掉，见第 0007 课）</dd>
+</dl></div>
+
+<details class="how">
+<summary>原始头注释，以及「谁公开谁秘密」是从代码哪里看出来的</summary>
 <pre>Zero-Knowledge circuit implementation for ML-DSA signature verification.
 ...
 Core Verification Pipeline (assert_valid_signature_on_mu):
@@ -42,35 +143,99 @@ Core Verification Pipeline (assert_valid_signature_on_mu):
   4. Range Checks: ... ||z||_infty &lt; gamma_1 - beta.
   5. Hash Commitment: Encodes w'_1 and asserts that
      SHAKE256(mu || encoded_w'_1) == c_tilde.</pre>
-<p>对照 <a href="0003-ml-dsa-verify-anatomy.html">第 0003 课</a> 的 FIPS 204 Algorithm 8：第 8、9、10、12、13 行都在电路里；<strong>第 5 行 ExpandA、第 6 行 tr = H(pk)、第 7 行 μ 不在</strong>。</p>
-
-<h3>谁是公开的、谁是秘密的</h3>
-<p>在测试文件 <code>ml_dsa_circuit_test.cc</code> 里构造完整电路时，顺序是：<code>pk-&gt;input()</code> → <code>Q.private_input()</code> → 签名、witness、μ。<code>private_input()</code> 之前的是公开输入，之后的是私有的。所以这个电路证明的陈述是：</p>
-<p style="text-align:center"><em>「存在一个签名 (c̃, z, h)，在<strong>公开</strong>的公钥 (Â, NTT(t₁), tr) 下，对某个<strong>秘密</strong>的 μ 验证通过。」</em></p>
+<p>在测试文件 <code>ml_dsa_circuit_test.cc</code> 里构造完整电路时，顺序是：<code>pk-&gt;input()</code> → <code>Q.private_input()</code> → 签名、witness、μ。<code>private_input()</code> 之前的是公开输入，之后的是私有的。</p>
 <ul>
-  <li>Â 直接作为输入给出（已经展开好的矩阵），所以 ExpandA 的 96 次 Keccak 不在电路里 —— 前提是公钥可以公开。</li>
   <li>μ 是私有输入，电路没有检查它确实是由 tr 和消息算出来的（GordieHowe 论文也独立指出了这一点）。</li>
   <li>小细节：头注释里把签名和 μ 也列在 "Public Inputs" 下，但测试代码实际把它们放在 <code>private_input()</code> 之后。以代码为准。</li>
 </ul>
-<p>整个电路在 <code>Fp24_6</code> 上：ML-DSA 的模数 q = 8380417 的<strong>六次扩域</strong>（<code>kBeta = 7</code>）。格算术是原生的；扩域是为了让 sumcheck 有足够的可靠性（误差 ≤ v·d/|F|，域要够大）。SHAKE 也在这个域里用比特电路实现，每 6 轮 commit 一次状态，标着 "DO NOT USE IN PRODUCTION"。</p>
+<p>整个电路在 <code>Fp24_6</code> 上：ML-DSA 的模数 q = 8380417 的<strong>六次扩域</strong>（<code>kBeta = 7</code>）。格算术是原生的；扩域是为了让 sumcheck 有足够的可靠性（误差 ≤ v·d/|F|，域要够大）。SHAKE 也在这个域里用比特电路实现，每 6 轮 commit 一次状态。代码标着 "DO NOT USE IN PRODUCTION"（「请勿用于生产环境」），说明这是测试 / 原型电路，不是部署版本。</p>
+</details>
 
 <h2>3. 两个值得记住的电路技巧（面谈里能聊）</h2>
+<p>两个技巧的共同思路一句话：<strong>原本要在电路里「算」的东西，改成让 prover 直接给出答案，电路只「验」答案对不对。</strong>验比算便宜得多。</p>
+
 <h3>技巧 1：SampleInBall 不在电路里「算」，只「检查」</h3>
-<p>SampleInBall 是一个带拒绝采样的 Fisher–Yates 洗牌，顺序执行在电路里很贵。他们的做法：prover 直接告诉电路「第 s 个被接受的样本在 SHAKE 输出的第几个字节」，电路只检查三件事 —— 该字节确实等于样本值；样本在合法范围内；中间跳过的字节确实都应该被拒绝。洗牌过程也是并行验证而不是顺序模拟。（源码第 540–560 行注释）</p>
+<div class="io"><dl>
+  <dt>原函数</dt><dd>SampleInBall（FIPS 204）：输入 c̃ → 输出挑战多项式 c（恰好 τ 个 ±1）。内部是对 SHAKE256 输出做「拒绝采样 + Fisher–Yates 洗牌」：逐字节读，不合格的字节丢掉，合格的决定下一个 ±1 放在哪个位置</dd>
+  <dt>为什么贵</dt><dd>它是<strong>顺序的、依赖数据的</strong>：第几个字节被接受取决于前面的内容，电路没法按固定流程一门一门照搬</dd>
+  <dt>电路版输入</dt><dd>c̃（秘密）+ <strong>prover 提供的 index</strong>：「第 s 个被接受的样本在 SHAKE 输出的第几个字节」（秘密）</dd>
+  <dt>电路版输出</dt><dd>通过 / 不通过；通过则得到正确的 c</dd>
+  <dt>检查三件事</dt><dd>① 那个位置上的字节确实等于样本值；② 样本在合法范围内；③ 中间被跳过的字节确实都应该被拒绝</dd>
+  <dt>一句话</dt><dd>prover 告诉电路「答案在哪」，电路只核对，不重新模拟洗牌过程</dd>
+</dl></div>
+<figure>
+<svg viewBox="0 0 640 210" width="100%" role="img" aria-label="SampleInBall 的 index 检查：prover 指出被接受的字节位置，电路逐项核对">
+  <defs><marker id="m6b" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+  <text x="320" y="18" text-anchor="middle" font-size="12">SHAKE256(c̃) 的输出字节（电路内算出）</text>
+  <rect x="40" y="30" width="56" height="30" fill="none" stroke="currentColor"/><text x="68" y="50" text-anchor="middle" font-size="12">b0</text>
+  <rect x="96" y="30" width="56" height="30" fill="none" stroke="currentColor" stroke-width="2.5"/><text x="124" y="50" text-anchor="middle" font-size="12">b1 ✓</text>
+  <rect x="152" y="30" width="56" height="30" fill="none" stroke="currentColor" stroke-width="2.5"/><text x="180" y="50" text-anchor="middle" font-size="12">b2 ✓</text>
+  <rect x="208" y="30" width="56" height="30" fill="none" stroke="currentColor" stroke-dasharray="3 3"/><text x="236" y="50" text-anchor="middle" font-size="12">b3 ✗</text>
+  <rect x="264" y="30" width="56" height="30" fill="none" stroke="currentColor" stroke-dasharray="3 3"/><text x="292" y="50" text-anchor="middle" font-size="12">b4 ✗</text>
+  <rect x="320" y="30" width="56" height="30" fill="none" stroke="currentColor" stroke-width="2.5"/><text x="348" y="50" text-anchor="middle" font-size="12">b5 ✓</text>
+  <rect x="376" y="30" width="56" height="30" fill="none" stroke="currentColor"/><text x="404" y="50" text-anchor="middle" font-size="12">…</text>
+  <rect x="110" y="110" width="250" height="34" rx="6" fill="none" stroke="currentColor"/>
+  <text x="235" y="132" text-anchor="middle" font-size="12">prover 给 index：b1、b2、b5</text>
+  <line x1="124" y1="110" x2="124" y2="62" stroke="currentColor" marker-end="url(#m6b)"/>
+  <line x1="180" y1="110" x2="180" y2="62" stroke="currentColor" marker-end="url(#m6b)"/>
+  <line x1="348" y1="110" x2="348" y2="62" stroke="currentColor" marker-end="url(#m6b)"/>
+  <text x="470" y="80" text-anchor="middle" font-size="11">① 指向的字节 = 样本值</text>
+  <text x="470" y="98" text-anchor="middle" font-size="11">② 样本在合法范围</text>
+  <text x="470" y="116" text-anchor="middle" font-size="11">③ 跳过的 b3、b4 确实该拒</text>
+  <text x="320" y="180" text-anchor="middle" font-size="12">输出：通过 / 不通过（通过 ⇒ 得到正确的挑战多项式 c）</text>
+</svg>
+<figcaption>示意图（字节编号是举例）：粗框 = 被接受的样本，虚线 = 被跳过的字节。电路不模拟「逐字节读、逐个决定」的过程，只核对 prover 给的位置。</figcaption>
+</figure>
+<details class="how">
+<summary>源码位置</summary>
+<p>源码第 540–560 行注释。洗牌过程也是并行验证而不是顺序模拟。</p>
+</details>
+
 <h3>技巧 2：UseHint 只用一次范围检查</h3>
-<p>FIPS 的 UseHint 要按 r₀ 的正负决定 r₁ 加一还是减一。他们让 prover 直接给出答案 <code>hinted_r1</code>，电路把 r₀ 的合法区间整体平移成非负区间，只做<strong>一次</strong>范围检查就同时确认「方向对」和「数值对」（"interval shifting"，第 300–345 行注释）。</p>
+<div class="io"><dl>
+  <dt>原函数</dt><dd>UseHint（FIPS 204）：输入 hint 比特 h 和一个系数 r → 输出修正后的高位 r₁。做法：把 r 拆成高位 r₁ 和低位 r₀；若 h = 1，按 r₀ 的正负把 r₁ 加一或减一</dd>
+  <dt>为什么贵</dt><dd>要先拆位、再判断正负、再分情况 —— 每个都是比特级操作</dd>
+  <dt>电路版输入</dt><dd>r、h，以及 <strong>prover 直接给出的答案 <code>hinted_r1</code></strong>（秘密）</dd>
+  <dt>电路版输出</dt><dd>通过 / 不通过；通过则 <code>hinted_r1</code> 就是正确的 r₁</dd>
+  <dt>怎么检查</dt><dd>「区间平移（interval shifting）」：把 r₀ 的合法区间 [a, b] 整体平移成从 0 开始的非负区间 [0, b − a]，<strong>只做一次</strong>范围检查，就同时确认「方向对」和「数值对」</dd>
+  <dt>一句话</dt><dd>prover 给出修正后的结果，电路用一次范围检查确认它没撒谎</dd>
+</dl></div>
+<figure>
+<svg viewBox="0 0 640 220" width="100%" role="img" aria-label="UseHint 的区间平移：把合法区间 a 到 b 平移成 0 到 b 减 a，只做一次范围检查">
+  <defs><marker id="m6c" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+  <text x="320" y="20" text-anchor="middle" font-size="12">输入：r、h，加上 prover 给的 hinted_r1</text>
+  <text x="320" y="42" text-anchor="middle" font-size="11">原函数：拆高低位 → 判断 r₀ 正负 → r₁ ± 1（多次比特判断）</text>
+  <line x1="40" y1="100" x2="600" y2="100" stroke="currentColor"/>
+  <line x1="320" y1="94" x2="320" y2="106" stroke="currentColor"/><text x="320" y="122" text-anchor="middle" font-size="11">0</text>
+  <line x1="200" y1="100" x2="380" y2="100" stroke="currentColor" stroke-width="5"/>
+  <text x="290" y="88" text-anchor="middle" font-size="12">合法区间 [a, b]</text>
+  <line x1="40" y1="165" x2="600" y2="165" stroke="currentColor"/>
+  <line x1="320" y1="159" x2="320" y2="171" stroke="currentColor"/><text x="320" y="187" text-anchor="middle" font-size="11">0</text>
+  <line x1="320" y1="165" x2="500" y2="165" stroke="currentColor" stroke-width="5"/>
+  <text x="410" y="153" text-anchor="middle" font-size="12">[0, b − a]</text>
+  <line x1="250" y1="110" x2="350" y2="150" stroke="currentColor" marker-end="url(#m6c)"/>
+  <text x="200" y="140" text-anchor="middle" font-size="11">整体减 a</text>
+  <text x="320" y="212" text-anchor="middle" font-size="12">电路：一次检查 0 ≤ r₀ − a ≤ b − a → 通过 / 不通过</text>
+</svg>
+<figcaption>区间平移示意。原本的「先看符号、再分情况」变成一个「落在 [0, b − a] 里吗」的检查。</figcaption>
+</figure>
+<details class="how">
+<summary>源码位置</summary>
+<p>"interval shifting" 在第 300–345 行注释。</p>
+</details>
 
 <h3>和你的 MPC 经验对照（这是一个好话题）</h3>
-<p>这两个技巧的共同点是：<strong>让 prover 算，电路只验</strong>。ZK 能这样做，是因为 prover 知道全部 witness。MPC 里做不到 —— SHIELD 里没有任何一方知道完整秘密，SampleInBall 必须真的在混淆电路里一门一门执行（你把它从 890K 门压到 355K 门，就是因为躲不掉）。</p>
+<p>「让 prover 算，电路只验」之所以在 ZK 里可行，是因为 prover 知道全部 witness。MPC 里做不到 —— SHIELD 里没有任何一方知道完整秘密，SampleInBall 必须真的在混淆电路（garbled circuit，把布尔电路加密后由一方计算的 MPC 技术）里一门一门执行（你把它从 890K 门压到 355K 门，就是因为躲不掉）。</p>
 <div class="say">After I sent the email I looked at your ML-DSA test circuit, and what struck me is how much you push to the prover — SampleInBall is checked from prover-supplied indices, and UseHint needs a single range check with the interval shift. In MPC I can't do that: nobody holds the secret, so in SHIELD SampleInBall had to be executed gate by gate, and the best I could do was shrink the circuit from 890K to 355K gates. That contrast is exactly why I think the hash side is where the remaining cost lives in ZK.</div>
 <div class="warn">只有在你<strong>真的读过</strong>源码那两段注释之后才说 "I looked at your circuit"。没读就换成 "I saw from your IETF slides that you already have an ML-DSA-44 proof at 858 ms"。</div>
 
 <h2>4. 你的读源码任务（15 分钟）</h2>
+<p>目标只是确认上面的黑盒卡片和源码对得上，不需要看懂每行代码。</p>
 <ol>
-  <li>打开 <a href="https://github.com/longfellow-zk/longfellow-zk/blob/main/lib/circuits/tests/pq/ml_dsa/ml_dsa_circuit.h"><code>ml_dsa_circuit.h</code></a>，读第 30–60 行头注释。</li>
+  <li>打开 <a href="https://github.com/longfellow-zk/longfellow-zk/blob/main/lib/circuits/tests/pq/ml_dsa/ml_dsa_circuit.h"><code>ml_dsa_circuit.h</code></a>，读第 30–60 行头注释，对照 2.2 节的表。</li>
   <li>找 <code>assert_valid_signature_on_mu</code>（约第 815 行），看它依次调了哪几个 <code>assert_*</code>，和 FIPS 204 Algorithm 8 对行号。</li>
-  <li>读 UseHint 的注释（约第 300–345 行）和 SampleInBall 的注释（约第 540–560 行）。</li>
-  <li>打开 <a href="https://github.com/longfellow-zk/longfellow-zk/blob/main/lib/circuits/tests/pq/ml_dsa/ml_dsa_circuit_test.cc"><code>ml_dsa_circuit_test.cc</code></a>，找 <code>make_ml_dsa_circuit</code>（约第 108 行），确认 <code>private_input()</code> 在哪里；benchmark 叫 <code>BM_MLDSA44ZK_Prove</code>。</li>
+  <li>读 UseHint 的注释（约第 300–345 行）和 SampleInBall 的注释（约第 540–560 行），对照第 3 节的两张卡片。</li>
+  <li>打开 <a href="https://github.com/longfellow-zk/longfellow-zk/blob/main/lib/circuits/tests/pq/ml_dsa/ml_dsa_circuit_test.cc"><code>ml_dsa_circuit_test.cc</code></a>，找 <code>make_ml_dsa_circuit</code>（约第 108 行），确认 <code>private_input()</code> 在哪里；benchmark 叫 <code>BM_MLDSA44ZK_Prove</code>（BM = benchmark）。</li>
 </ol>
 
 <h2>自测</h2>
@@ -97,7 +262,7 @@ Core Verification Pipeline (assert_valid_signature_on_mu):
   <div class="why">「prover 算、电路验」依赖 prover 掌握 witness；MPC 里秘密是分散的，必须联合执行。</div>
 </div>
 <div class="recall">
-  <div class="q">回忆练习：不看页面，用三句英文向 abhi 解释你邮件里那句话，第三句要落到 SHIELD 的两个数字上。</div>
+  <div class="q">回忆练习：① 不看页面，用三句英文向 abhi 解释你邮件里那句话，第三句要落到 SHIELD 的两个数字上。② 分别说出 SampleInBall 和 UseHint 在电路里的「输入（含 prover 提供的答案）→ 检查什么 → 输出」。</div>
   <textarea></textarea>
 </div>
 

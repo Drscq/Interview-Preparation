@@ -8,9 +8,10 @@
 \usetheme[progressbar=frametitle,numbering=fraction]{metropolis}
 \usepackage{booktabs}
 \usepackage{pgfplots}
-\usetikzlibrary{positioning}
+\usetikzlibrary{positioning,fit,calc,arrows.meta}
 \pgfplotsset{compat=1.18}
 \usepackage{xcolor}
+\usepackage[normalem]{ulem}
 \definecolor{accent}{HTML}{8A1C1C}
 \definecolor{okgreen}{HTML}{1F6B3A}
 \setbeamercolor{alerted text}{fg=accent}
@@ -41,153 +42,132 @@
 \textit{Common thread: compute and prove things about \alert{unmodified standard signatures}.}
 \end{frame}
 
-\begin{frame}{SHIELD: unmodified ML-DSA signing inside MPC (online, ML-DSA-44)}
-\begin{columns}[T]
-\column{.5\textwidth}
-\begin{tikzpicture}
-\begin{axis}[xbar, width=0.62\linewidth, height=5.2cm, xmode=log, log basis x=10,
-  xmin=0.3, xmax=3000, point meta=rawx, symbolic y coords={Poly mult,CheckNorm+MakeHint,Challenge,Keccak},
-  ytick=data, yticklabel style={font=\small}, xlabel={Mcycles (log scale)}, xlabel style={font=\small},
-  nodes near coords, nodes near coords style={font=\scriptsize}, bar width=9pt, enlarge y limits=0.2,
-  axis lines*=left, every axis plot/.append style={fill=accent!70, draw=accent}]
-\addplot coordinates {(0.70,Poly mult) (110,CheckNorm+MakeHint) (255,Challenge) (341,Keccak)};
-\end{axis}
+\begin{frame}{SHIELD (IEEE S\&P 2026): threshold ML-DSA, standard output}
+\centering
+\begin{tikzpicture}[scale=.92, transform shape, font=\small, >=Stealth,
+  box/.style={draw, rounded corners, align=center, inner sep=4pt},
+  sub/.style={font=\scriptsize}]
+\node[box, fill=gray!10] (ca) at (0,0) {CA\\[-1pt]{\scriptsize one-time setup:}\\[-2pt]{\scriptsize share $sk$, then delete}};
+\node[box] (s1) at (3.1,1.0) {Server 1\\[-1pt]{\scriptsize share $[sk]_1$}};
+\node (dots) at (3.1,0.05) {$\vdots$};
+\node[box] (sn) at (3.1,-1.0) {Server $n$\\[-1pt]{\scriptsize share $[sk]_n$}};
+\draw[->] (ca.east) -- (s1.west);
+\draw[->] (ca.east) -- (sn.west);
+\node[box, fill=accent!8, text width=4.1cm] (ar) at (7.25,1.05) {\textbf{SPDZ} (arithmetic shares)\\[-1pt]{\scriptsize NTT, polynomial products: linear, almost free}};
+\node[box, fill=okgreen!8, text width=4.1cm] (bo) at (7.25,-1.1) {\textbf{Garbled circuits} (WRK17)\\[-1pt]{\scriptsize SHAKE/Keccak, SampleInBall, norm checks, hints}};
+\draw[<->, thick] (ar.south) -- node[right, sub]{daBits switch} (bo.north);
+\node[draw, dashed, rounded corners, fit=(ar)(bo), inner sep=6pt, label={[font=\scriptsize]above:MPC among the $n$ servers}] (mpc) {};
+\draw[->] (s1.east) -- (mpc.west |- s1.east);
+\draw[->] (sn.east) -- (mpc.west |- sn.east);
+\node[box, text width=2.4cm] (sig) at (11.9,0.85) {standard\\ ML-DSA signature $\sigma$};
+\node[box, fill=okgreen!12, text width=2.4cm] (ver) at (11.9,-1.3) {unmodified FIPS 204 verifier: \textcolor{okgreen}{accept}};
+\draw[->] (mpc.east |- sig.west) -- (sig.west);
+\draw[->] (sig.south) -- (ver.north);
 \end{tikzpicture}
-\column{.48\textwidth}
-\footnotesize
+\vspace{.6em}
+\begin{columns}[T]
+\column{.5\textwidth}\footnotesize
 \begin{itemize}
-  \item $n$ servers, malicious security; output \alert{bit-identical} to FIPS 204 (NIST KATs).
-  \item SPDZ + WRK17 garbled circuits, daBits to switch.
-  \item NTTs are linear on shares: \alert{$<0.2\%$} of online compute; Boolean work dominates.
-  \item Verilog $\to$ Yosys $\to$ Bristol; SampleInBall $890\text{K}\to355\text{K}$ gates.
+  \item No single server ever holds the key: $n$-of-$n$, malicious security with abort
+        (up to $n-1$ corrupted servers).
+\end{itemize}
+\column{.5\textwidth}\footnotesize
+\begin{itemize}
+  \item Output is \alert{bit-identical} to FIPS 204 (NIST KATs); Boolean steps compiled
+        Verilog $\to$ Yosys $\to$ Bristol circuits.
 \end{itemize}
 \end{columns}
-\src{SHIELD cost table (signing in MPC). ML-DSA-65/87: Keccak 438/597, poly 1.21/1.37 Mcycles.}
 \end{frame}
 
-\begin{frame}{FLOCK and the threshold-Falcon fixes}
-\begin{columns}[T]
-\column{.5\textwidth}
-\textbf{FLOCK} (first author, under submission)
-\begin{itemize}
-  \item Falcon-compatible threshold signatures: the Falcon counterpart of SHIELD.
-  \item Together: threshold signing for \alert{both lattice signatures NIST selected}.
-\end{itemize}
-\column{.5\textwidth}
-\textbf{Before FLOCK: reproducing a CCS 2026 artifact}
-\begin{itemize}
-  \item Found two silent bugs: a PRG byte/element mix-up left $7/8$ of the sampler buffer
-        uninitialized; a \texttt{size\_t} swallowed $-1$.
-  \item Fixes merged upstream; signing $\approx 9\times$ faster.
-\end{itemize}
-\end{columns}
-\vspace{.8em}
-\textit{What this says about me: I read other people's cryptographic code closely,
-and I check it against the spec.}
+\begin{frame}{FLOCK: Falcon-compatible threshold signing in nine rounds}
+\centering
+\begin{tikzpicture}[scale=.92, transform shape, font=\small, >=Stealth,
+  box/.style={draw, rounded corners, align=center, inner sep=4pt},
+  stp/.style={draw, rounded corners, align=center, inner sep=3pt, font=\scriptsize, text width=2.45cm, minimum height=.95cm}]
+% the obstacle
+\node[box, fill=accent!8, text width=6.3cm, anchor=west] (ob) at (0,2.45)
+  {\textbf{Falcon's trapdoor sampler} (ffSampling)\\[-1pt]
+   {\scriptsize floating point; $2n$ sequential draws, each centered on a secret}};
+\node[box, fill=accent!8, text width=4.0cm, anchor=east] (pr) at (12.6,2.45)
+  {prior threshold Falcon\\[-1pt]{\scriptsize \alert{tens of thousands of rounds} per signature}};
+\draw[->, thick] (ob) -- node[above, font=\scriptsize]{in MPC} (pr);
+% idea 1
+\node[box, text width=12.2cm, anchor=west] (i1) at (0,1.0)
+  {\textbf{\textcircled{\scriptsize 1} Swap the sampler}: Peikert offline/online + Zalcon + Antrag trapdoor
+   \;$\Rightarrow$\; {\scriptsize integer-only, parallel, sequential depth 2 instead of $2n$}};
+% idea 2: masked-center flow
+\node[stp, fill=gray!10]   (a) at (1.45,-0.75) {center $c$ in\\ secret shares};
+\node[stp, fill=accent!8]  (b) at (4.6,-0.75)  {open the masked\\ center $c + e$};
+\node[stp, fill=okgreen!8] (c) at (7.75,-0.75) {each party samples\\ in the clear};
+\node[stp, fill=gray!10]   (d) at (10.9,-0.75) {back in MPC:\\ linear ops only};
+\draw[->] (a) -- (b); \draw[->] (b) -- (c); \draw[->] (c) -- (d);
+\node[draw, dashed, rounded corners, fit=(a)(d), inner sep=5pt,
+  label={[font=\small, anchor=south west, inner sep=2pt]north west:\textbf{\textcircled{\scriptsize 2} Keep the secret-centered draw outside the MPC}}] (i2) {};
+% result
+\node[box, fill=okgreen!12, text width=12.2cm, anchor=west] (res) at (0,-2.35)
+  {Offline batched preprocessing + \alert{9 online rounds}; signatures pass Falcon's verifier
+   at FLOCK's parameters {\scriptsize ($-4/12$ forgery bits, $+9/32$ bytes)}};
+\end{tikzpicture}
+\src{4 signers, smaller set: 25\,ms on a LAN vs.\ 24.2\,s for Garg et al.\ (first author, under submission).}
 \end{frame}
 
 \begin{frame}{My reading of Longfellow}
-\begin{columns}[T]
-\column{.55\textwidth}
-\textbf{The statement}
-\begin{itemize}
-  \item An mdoc (ISO 18013-5) credential signed with \alert{ECDSA P-256 + SHA-256}: prove possession
-        and reveal one attribute, with no change to the issuer.
-\end{itemize}
-\textbf{The recipe}
-\begin{itemize}
-  \item Run sumcheck, commit to the padded transcript, then prove ``the transcript makes the verifier accept'' with Ligero.
-  \item Ligero only sees $d<20$ quadratic constraints, not the whole circuit.
-\end{itemize}
-\column{.45\textwidth}
-\textbf{The fields}
-\begin{itemize}
-  \item P-256 base field: NTT in a quadratic extension, $\approx 1.5\times$ cost.
-  \item SHA-256 in $\mathrm{GF}(2^{128})$, additive FFT.
-  \item A random MAC links the witnesses of the two proofs.
-\end{itemize}
-\textbf{Today}: ECDSA prover 16.7\,ms (M4); CFRG draft; part of the PQCA.
-\end{columns}
-\src{Frigo \& shelat, CiC 2025 (ePrint 2024/2010); draft-irtf-cfrg-longfellow-00; IETF 126 slides.}
-\end{frame}
-
-\begin{frame}{Your ML-DSA circuit, through the lens of SHIELD}
-\footnotesize
-\begin{tabular}{@{}lll@{}}
-\toprule
-FIPS 204 Alg.\ 8 step & kind & Keccak-f (ML-DSA-44)\\
-\midrule
-$\hat{A}\gets\mathsf{ExpandA}(\rho)$ (SHAKE128) & hash & $\approx 96$\\
-$tr\gets H(pk)$ & hash & $10$\\
-$\mathsf{SampleInBall}$, $\tilde c' = H(\mu\,\|\,w_1')$ & hash & $\approx 10$\\
-$\mathrm{NTT}^{-1}(\hat{A}\circ\hat z-\hat c\circ\widehat{t_1 2^d})$ & mod $q$ & --\\
-$\mathsf{UseHint}$, $\|z\|_\infty<\gamma_1-\beta$ & range & --\\
-\bottomrule
-\end{tabular}
-\vspace{.5em}
-\begin{itemize}
-  \item In \texttt{tests/pq/ml\_dsa}, $(\hat A, t_1, tr)$ are public inputs, so ExpandA and $H(pk)$ stay outside:
-        $\approx 10$ permutations. \textbf{858\,ms} on an M4 (IETF 126).
-  \item Same picture as signing in SHIELD: \alert{the lattice algebra is cheap, the hashing is not.}
-  \item If the public key must be hidden: $\approx 116$ permutations, $\approx 4.5$M AND gates.
-\end{itemize}
-\src{FIPS 204; 16 ExpandA polynomials $\times \le 6$ SHAKE128 blocks; $pk$ = 1312 B over a 136 B rate; Keccak-f[1600] = 38{,}400 AND gates.}
-\end{frame}
-
-\begin{frame}{What comes next: from the issuer side to the holder side}
 \centering
-\begin{tikzpicture}[node distance=1.2cm, every node/.style={font=\small}]
-\node[draw, rounded corners, align=center, fill=accent!8] (iss) {Issuer\\ SHIELD / FLOCK servers\\ \footnotesize no single key holder};
-\node[draw, rounded corners, align=center, right=1.4cm of iss] (sig) {standard\\ PQ signature\\ \footnotesize ML-DSA or Falcon};
-\node[draw, rounded corners, align=center, fill=okgreen!8, right=1.4cm of sig] (hold) {Holder\\ Longfellow proof\\ \footnotesize reveals one attribute};
-\draw[->, thick] (iss) -- node[above, font=\scriptsize]{done} (sig);
-\draw[->, thick] (sig) -- node[above, font=\scriptsize]{next} (hold);
+\begin{tikzpicture}[scale=.92, transform shape, font=\small, >=Stealth,
+  box/.style={draw, rounded corners, align=center, inner sep=4pt},
+  comp/.style={box, text width=3.0cm, minimum height=1.55cm},
+  lab/.style={font=\scriptsize, align=center}]
+\node[box, fill=gray!10, text width=12.4cm] (st) at (6.3,2.6)
+  {\textbf{Statement}: I hold an mdoc signed with \alert{ECDSA P-256 + SHA-256};
+   reveal one attribute, hide the device key};
+\node[comp, fill=accent!8] (sc) at (1.6,0.75)
+  {\textbf{\textcircled{\scriptsize 1} Sumcheck}\\[1pt]{\scriptsize runs the circuit,\\ prover time $O(|C|)$}};
+\node[comp, fill=okgreen!8] (lg) at (6.3,0.75)
+  {\textbf{\textcircled{\scriptsize 2} Ligero}\\[1pt]{\scriptsize commit + zero knowledge,\\ only $d<20$ constraints}};
+\node[comp, fill=gray!10] (rs) at (11.0,0.75)
+  {\textbf{\textcircled{\scriptsize 3} RS encoding}\\[1pt]{\scriptsize rows $\to$ codewords;\\ verifier opens columns}};
+\draw[->, thick] (sc) -- node[above, lab]{masked}node[below, lab]{transcript} (lg);
+\draw[->, thick] (lg) -- node[above, lab]{commits}node[below, lab]{via} (rs);
+\node[lab] at (6.3,-0.55) {only SHA-256 is assumed: transparent, hash-based};
+\node[box, text width=4.3cm] (fp) at (2.35,-1.6) {P-256 half: NTT in $\mathrm{GF}(p^2)$};
+\node[box, text width=4.3cm] (f2) at (10.25,-1.6) {SHA-256 half: $\mathrm{GF}(2^{128})$};
+\draw[<->, dashed, accent] (fp) -- node[above, lab, text=accent]{random MAC} node[below, lab, text=accent]{same witness} (f2);
 \end{tikzpicture}
-\vspace{.8em}
+\src{ECDSA prover 16.7\,ms on an M4; CFRG draft; part of the PQCA. Frigo \& shelat, CiC vol.\ 3 (2026); IETF 126 slides.}
+\end{frame}
+
+\begin{frame}{What comes next: swap the issuer's ECDSA for a PQ signature}
+\centering
+\begin{tikzpicture}[font=\small, >=Stealth,
+  box/.style={draw, rounded corners, align=center, inner sep=4pt}]
+\node[box, text width=3.3cm] (iss) at (0,0) {Issuer signs the MSO\\[2pt]
+  {\footnotesize\textcolor{accent}{\sout{ECDSA P-256}}}\\[-1pt]
+  {\footnotesize\textcolor{okgreen}{ML-DSA-44 / Falcon-512}}};
+\node[box, fill=okgreen!8, text width=4.3cm] (hold) at (5.7,0) {Holder (Longfellow)\\[-1pt]
+  {\footnotesize proves ``I hold a valid PQ signature on my MSO''}};
+\node[box, text width=2.2cm] (ver) at (10.5,0) {Verifier\\[-1pt]{\footnotesize accept / reject}};
+\draw[->, thick] (iss) -- node[above, font=\scriptsize]{credential} (hold);
+\draw[->, thick] (hold) -- node[above, font=\scriptsize]{proof} (ver);
+\node[font=\scriptsize, text width=11cm, align=center] at (5.2,-1.45)
+  {The proof system is already hash-based; only the signature check inside the circuit changes.};
+\end{tikzpicture}
+\vspace{.5em}
 \begin{columns}[T]
 \column{.5\textwidth}
-\textbf{B. ML-DSA end to end}
+\textbf{B. ML-DSA in the full mdoc statement}
 \begin{itemize}\footnotesize
-  \item SHIELD signs an ML-DSA credential; your existing circuit proves it.
-  \item \alert{No change to the verifier or the circuit}: the signature is standard.
-  \item Then: cost of the whole pipeline, issuer and holder.
+  \item Your ML-DSA circuit exists (858\,ms on an M4, key public).
+  \item Next: combine it with the MSO hash, the disclosed attribute and device binding,
+        and measure end to end.
+  \item Then the hidden-key case: ExpandA moves into the circuit.
 \end{itemize}
 \column{.5\textwidth}
 \textbf{F. A Falcon circuit for Longfellow}
 \begin{itemize}\footnotesize
-  \item FLOCK signs Falcon credentials; the holder proves possession.
-  \item Falcon verification is short, and hiding the key is almost free (next slide).
+  \item Falcon verification is short: hash to a point, one polynomial product, a norm check.
+  \item The public key is one polynomial, with nothing to expand; worth measuring when the key is hidden.
 \end{itemize}
 \end{columns}
-\end{frame}
-
-\begin{frame}{Why Falcon is interesting for the holder side}
-\begin{columns}[T]
-\column{.5\textwidth}
-\textbf{Falcon verify} (round-3 spec, Alg.\ 16)
-\begin{enumerate}\footnotesize
-  \item $c\gets\mathsf{HashToPoint}(r\,\|\,m)$: SHAKE256, 16-bit samples, keep $t<5q$.
-  \item $s_2\gets\mathsf{Decompress}(s)$.
-  \item $s_1\gets c-s_2 h \bmod q$ \quad ($q=12289$, $n=512$).
-  \item Accept iff $\|(s_1,s_2)\|^2\le\lfloor\beta^2\rfloor$.
-\end{enumerate}
-\footnotesize The public key is \alert{one polynomial} $h$: nothing to expand.
-\column{.5\textwidth}
-\textbf{Keccak-f per verification} (my estimate)\\[.3em]
-\begin{tabular}{@{}lcc@{}}
-\toprule
- & key public & key hidden\\
-\midrule
-ML-DSA-44 & $\approx 10$ & $\approx 116$\\
-Falcon-512 & $\approx 9$ & $\approx 9$\\
-\bottomrule
-\end{tabular}
-\vspace{.5em}
-
-\footnotesize Open questions: Decompress in the circuit or as a witness; which field
-for $q=12289$ ($q-1 = 3\cdot 2^{12}$, so a 512-point negacyclic NTT exists).
-\end{columns}
-\src{Falcon spec v1.2 (round 3); FIPS 206 is still a draft. 512 samples $\times$ 2 B / 0.94 acceptance $\approx$ 1.1 KB over a 136 B rate.}
 \end{frame}
 
 \begin{frame}{Questions for you}

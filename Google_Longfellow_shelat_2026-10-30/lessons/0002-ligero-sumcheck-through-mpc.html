@@ -10,48 +10,235 @@
 <body>
 <main>
 <header class="lesson">
-  <div class="kicker">Lesson 0002 · 约 25 分钟 · <a href="../index.html">返回目录</a></div>
+  <div class="kicker">Lesson 0002 · 约 35 分钟 · <a href="../index.html">返回目录</a></div>
   <h1>用 MPC 的眼光看 Ligero 和 sumcheck</h1>
-  <p class="goal"><strong>这一课的收获：</strong>你没做过 ZK 证明系统，但做过 malicious-secure MPC。学会用 MPC 的语言讲 Ligero（MPC-in-the-head）和 sumcheck，被追问时能接住两三层，并且<strong>知道自己的边界在哪</strong>。</p>
+  <p class="goal"><strong>这一课的收获：</strong>你没做过 ZK 证明系统，但做过 malicious-secure MPC（恶意安全的多方计算）。学会用 MPC 的语言讲 Ligero（MPC-in-the-head）和 sumcheck，被追问时能接住两三层，并且<strong>知道自己的边界在哪</strong>。</p>
 </header>
 
+<p><strong>怎么读这一课：</strong>和第 0001 课一样，每个组件先给「黑盒卡片」（输入 / 输出 / 负责什么）；折叠的「细节（可跳过）」讲内部怎么做到的，面谈不需要。prover、verifier、statement、witness、承诺（commitment）、记录（transcript）这些名词的定义见 <a href="0001-what-longfellow-proves.html">第 0001 课第 0 节</a>。</p>
+
+<details open>
+<summary><strong>本课缩写速查</strong>（正文里每个缩写第一次出现时也会写全称和意思）</summary>
+<table>
+<tr><th>缩写</th><th>全称</th><th>一句话意思</th></tr>
+<tr><td>ZK</td><td>Zero-Knowledge</td><td>零知识：verifier 除了「陈述为真」学不到任何东西。</td></tr>
+<tr><td>MPC</td><td>Multi-Party Computation</td><td>多方安全计算：多方合算一个函数，谁也看不到别人的输入。</td></tr>
+<tr><td>STOC</td><td>ACM Symposium on Theory of Computing</td><td>理论计算机科学顶会之一（ACM = Association for Computing Machinery，美国计算机协会）。</td></tr>
+<tr><td>PCP</td><td>Probabilistically Checkable Proof</td><td>概率可检验证明：verifier 只随机读证明的几个位置就能判断真假。</td></tr>
+<tr><td>RS</td><td>Reed–Solomon（码）</td><td>把 k 个数编码成 n 个数的纠错码；Shamir 秘密分享就是一个 RS 码字。</td></tr>
+<tr><td>SHIELD</td><td>（你的系统名，非缩写解释）</td><td>你的门限 ML-DSA 工作：n 台服务器在 MPC 里联合算出标准 ML-DSA 签名。</td></tr>
+<tr><td>SPDZ</td><td>Smart–Pastro–Damgård–Zakarias（读作 "speedz"）</td><td>四位作者首字母；算术域上的恶意安全 MPC 协议，用带 MAC 的秘密分享。</td></tr>
+<tr><td>WRK17</td><td>Wang–Ranellucci–Katz 2017</td><td>三位作者首字母 + 年份；恶意安全的认证混淆电路（authenticated garbling），用于布尔电路。</td></tr>
+<tr><td>FIPS 204</td><td>Federal Information Processing Standard 204</td><td>美国联邦信息处理标准第 204 号 = ML-DSA 签名标准。</td></tr>
+<tr><td>ML-DSA</td><td>Module-Lattice-Based Digital Signature Algorithm</td><td>NIST 的后量子格签名标准。</td></tr>
+<tr><td>PAZK</td><td><em>Proofs, Arguments, and Zero-Knowledge</em></td><td>Justin Thaler 的教科书书名首字母，ZK 入门标准读物。</td></tr>
+<tr><td>GKR</td><td>Goldwasser–Kalai–Rothblum（2008）</td><td>三位作者首字母；把 sumcheck 一层层用在电路上的框架。</td></tr>
+<tr><td>S&amp;P</td><td>IEEE Symposium on Security and Privacy</td><td>安全四大顶会之一（IEEE = Institute of Electrical and Electronics Engineers）。</td></tr>
+<tr><td>IRTF / CFRG</td><td>Internet Research Task Force / Crypto Forum Research Group</td><td>互联网研究任务组 / 其中审密码算法的小组；<code>draft-irtf-cfrg-longfellow</code> 是它们的草案。</td></tr>
+<tr><td>ePrint</td><td>IACR Cryptology ePrint Archive</td><td>密码学预印本网站（IACR = International Association for Cryptologic Research）。</td></tr>
+<tr><td>F<sub>q</sub>, F<sub>q<sup>6</sup></sub></td><td>有限域 / 它的六次扩域</td><td>F<sub>q</sub> 是整数模 q；六次扩域的元素是 6 个 F<sub>q</sub> 元素组成的向量，域更大。</td></tr>
+<tr><td>Lean 4</td><td>Lean 定理证明器第 4 版</td><td>一种让计算机逐步检查数学证明的软件（不是缩写）。</td></tr>
+</table>
+</details>
+
+<h2>0. 这一课在整体里的位置</h2>
+<div class="io"><dl>
+  <dt>问题</dt><dd>第 0001 课说 Longfellow = sumcheck + Ligero。这一课回答：这两个积木各自吃什么、吐什么，以及为什么你作为 MPC 研究者能看懂它们</dd>
+  <dt>你要带走</dt><dd>① Ligero ≈ 「prover 自己一个人演一整场 MPC，让 verifier 抽查」；② sumcheck ≈ 「把一个大求和逐步换成一次随机点检查」；③ 两者用一次性掩码（pad）粘在一起</dd>
+</dl></div>
+
 <h2>1. Ligero = 把一个 MPC 协议「在脑子里」跑一遍</h2>
+<div class="io"><dl>
+  <dt>组件</dt><dd><strong>Ligero</strong>（Ames–Hazay–Ishai–Venkitasubramaniam，ACM CCS 2017 = ACM Conference on Computer and Communications Security；西班牙语「轻」，不是缩写）</dd>
+  <dt>Prover 输入</dt><dd>witness（一串秘密域元素）+ 一组公开的线性 / 二次等式</dd>
+  <dt>Verifier 输入</dt><dd>同一组公开等式</dd>
+  <dt>输出</dt><dd>对 witness 的<strong>承诺</strong> + 一个零知识证明「承诺里的数满足所有等式」；verifier 输出接受 / 拒绝</dd>
+  <dt>假设</dt><dd>只需要一个抗碰撞的哈希函数（Longfellow 用 SHA-256），没有可信设置</dd>
+  <dt>证明大小</dt><dd>约为电路规模的平方根</dd>
+</dl></div>
 <p>Ligero 摘要原话：它是把 <em>"the general transformation of Ishai et al. (STOC 2007) [MPC-in-the-head]"</em> 应用到 Damgård–Ishai 的 MPC 协议上，<em>"a simple zero-knowledge interactive PCP based on 'interleaved' Reed-Solomon codes"</em>，通信量 <em>"proportional to the square-root of the verification circuit size"</em>，<em>"can be based on any collision-resistant hash function"</em>。<span class="cite"><a href="https://eprint.iacr.org/2022/1608">Ligero, ePrint 2022/1608</a></span></p>
+<p>原话里的缩写：<strong>STOC 2007</strong> = 2007 年的 ACM Symposium on Theory of Computing（理论计算机顶会）；<strong>PCP</strong> = Probabilistically Checkable Proof（概率可检验证明，verifier 只随机读证明的几个位置）；「interactive PCP」就是带交互的 PCP，和第 0001 课说的 IOP（Interactive Oracle Proof）是一类东西。<strong>interleaved Reed–Solomon codes</strong>（交错 RS 码）= 把很多行数据各自做 RS 编码，排成一个矩阵。</p>
+
+<h3>1.1 MPC-in-the-head：黑盒视角</h3>
+<div class="io"><dl>
+  <dt>组件</dt><dd><strong>MPC-in-the-head</strong>（Ishai–Kushilevitz–Ostrovsky–Sahai，STOC 2007）</dd>
+  <dt>输入</dt><dd>任意一个 MPC 协议 + prover 的 witness</dd>
+  <dt>输出</dt><dd>一个零知识证明</dd>
+  <dt>做法一句话</dt><dd>prover 一个人<strong>模拟</strong>所有参与方：把 witness 秘密分享给它们、跑完协议、承诺每方的视图（view = 一方的输入、随机数和收到的全部消息）；verifier 随机打开几方的 view 检查是否一致</dd>
+  <dt>为什么零知识</dt><dd>被打开的那几方本来就看不到秘密（MPC 的隐私性）</dd>
+  <dt>为什么可靠</dt><dd>作弊一定会让某些 view 不一致，随机打开时大概率露馅</dd>
+</dl></div>
+<figure>
+<svg viewBox="0 0 640 200" width="100%" role="img" aria-label="MPC-in-the-head: prover simulates parties, verifier opens a few views">
+  <defs><marker id="m1" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+  <rect x="5" y="20" width="390" height="155" rx="8" fill="none" stroke="currentColor" stroke-dasharray="6 4"/>
+  <text x="200" y="40" text-anchor="middle" font-size="12">Prover 在自己「脑子里」演一场 MPC</text>
+  <rect x="15" y="68" width="60" height="34" rx="4" fill="none" stroke="currentColor"/>
+  <text x="45" y="90" text-anchor="middle" font-size="12">witness</text>
+  <line x1="75" y1="85" x2="120" y2="85" stroke="currentColor" marker-end="url(#m1)"/>
+  <text x="98" y="78" text-anchor="middle" font-size="10">分享</text>
+  <circle cx="140" cy="85" r="17" fill="none" stroke="currentColor" stroke-width="1"/><text x="140" y="89" text-anchor="middle" font-size="12">P1</text><rect x="120" y="120" width="40" height="22" rx="3" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3"/><text x="140" y="135" text-anchor="middle" font-size="11">view</text><line x1="140" y1="102" x2="140" y2="120" stroke="currentColor"/><circle cx="190" cy="85" r="17" fill="none" stroke="currentColor" stroke-width="2.5"/><text x="190" y="89" text-anchor="middle" font-size="12">P2</text><rect x="170" y="120" width="40" height="22" rx="3" fill="none" stroke="currentColor" stroke-width="2.5"/><text x="190" y="135" text-anchor="middle" font-size="11">view</text><line x1="190" y1="102" x2="190" y2="120" stroke="currentColor"/><text x="190" y="160" text-anchor="middle" font-size="11">打开</text><circle cx="240" cy="85" r="17" fill="none" stroke="currentColor" stroke-width="1"/><text x="240" y="89" text-anchor="middle" font-size="12">P3</text><rect x="220" y="120" width="40" height="22" rx="3" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3"/><text x="240" y="135" text-anchor="middle" font-size="11">view</text><line x1="240" y1="102" x2="240" y2="120" stroke="currentColor"/><circle cx="290" cy="85" r="17" fill="none" stroke="currentColor" stroke-width="2.5"/><text x="290" y="89" text-anchor="middle" font-size="12">P4</text><rect x="270" y="120" width="40" height="22" rx="3" fill="none" stroke="currentColor" stroke-width="2.5"/><text x="290" y="135" text-anchor="middle" font-size="11">view</text><line x1="290" y1="102" x2="290" y2="120" stroke="currentColor"/><text x="290" y="160" text-anchor="middle" font-size="11">打开</text><circle cx="340" cy="85" r="17" fill="none" stroke="currentColor" stroke-width="1"/><text x="340" y="89" text-anchor="middle" font-size="12">P5</text><rect x="320" y="120" width="40" height="22" rx="3" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3"/><text x="340" y="135" text-anchor="middle" font-size="11">view</text><line x1="340" y1="102" x2="340" y2="120" stroke="currentColor"/>
+  <rect x="445" y="70" width="190" height="70" rx="6" fill="none" stroke="currentColor"/>
+  <text x="540" y="92" text-anchor="middle" font-size="13">Verifier</text>
+  <text x="540" y="111" text-anchor="middle" font-size="11">随机挑几方，打开其 view</text>
+  <text x="540" y="128" text-anchor="middle" font-size="11">检查它们彼此一致</text>
+  <line x1="395" y1="95" x2="445" y2="95" stroke="currentColor" marker-end="url(#m1)"/>
+  <text x="420" y="88" text-anchor="middle" font-size="10">承诺</text>
+  <line x1="445" y1="120" x2="395" y2="120" stroke="currentColor" marker-end="url(#m1)" stroke-dasharray="4 3"/>
+  <text x="420" y="135" text-anchor="middle" font-size="10">挑战</text>
+  <text x="320" y="195" text-anchor="middle" font-size="11">粗线 = 被打开的 view（只看几方 → 看不到秘密）；虚线 = 一直锁着</text>
+</svg>
+<figcaption>MPC-in-the-head：所有参与方都是 prover 模拟出来的；verifier 只审计其中几方。</figcaption>
+</figure>
 <div class="grid2">
 <div>
 <h3>你在 SHIELD 里做的</h3>
-<p>n 台<strong>真实</strong>服务器各持私钥的一个 share，跑 SPDZ + WRK17 把 FIPS 204 签名算出来；任意 n−1 台作恶也只能让协议 abort。</p>
+<p>n 台<strong>真实</strong>服务器各持私钥的一个 share（秘密分享的份额），跑 SPDZ（Smart–Pastro–Damgård–Zakarias，算术部分）+ WRK17（Wang–Ranellucci–Katz 2017 的认证混淆电路，布尔部分）把 FIPS 204（ML-DSA 标准）签名算出来；任意 n−1 台作恶也只能让协议 abort（中止）。</p>
 </div>
 <div>
 <h3>MPC-in-the-head 做的</h3>
 <p>prover 一个人<strong>模拟</strong>所有参与方，把 witness 秘密分享给它们、跑完协议、承诺每方的 view；verifier 随机打开一部分 view 检查一致性。打开的那几方看不到秘密 → 零知识；作弊会在被打开的 view 里露馅 → 可靠性。</p>
 </div>
 </div>
-<p>在 Ligero 里，「秘密分享」就是 <strong>Reed–Solomon 编码</strong>（Shamir 分享本身就是 RS 码字），「打开几个参与方」就是<strong>打开码字矩阵的若干列</strong>。Longfellow 用码率 1/7、打开 132 列。<span class="cite"><a href="https://cic.iacr.org/p/3/1/7">CiC §5</a></span></p>
+
+<h3>1.2 在 Ligero 里，MPC 的每个概念对应什么</h3>
+<table>
+<tr><th>MPC 里的概念</th><th>Ligero 里的对应</th></tr>
+<tr><td>把秘密分享给 n 方</td><td>对 witness 做 <strong>Reed–Solomon 编码</strong>（Shamir 分享本身就是 RS 码字）</td></tr>
+<tr><td>第 j 方的 view</td><td>编码矩阵的第 j <strong>列</strong></td></tr>
+<tr><td>verifier 打开几方</td><td>verifier 随机<strong>打开若干列</strong></td></tr>
+</table>
+<figure>
+<svg viewBox="0 0 640 200" width="100%" role="img" aria-label="Reed-Solomon codeword matrix with a few opened columns">
+  <rect x="70" y="40" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.9"/><rect x="104" y="40" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.9"/><rect x="138" y="40" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="172" y="40" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="206" y="40" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="240" y="40" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="274" y="40" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="308" y="40" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="342" y="40" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="376" y="40" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="410" y="40" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="444" y="40" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="478" y="40" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="512" y="40" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="70" y="64" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.9"/><rect x="104" y="64" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.9"/><rect x="138" y="64" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="172" y="64" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="206" y="64" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="240" y="64" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="274" y="64" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="308" y="64" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="342" y="64" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="376" y="64" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="410" y="64" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="444" y="64" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="478" y="64" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="512" y="64" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="70" y="88" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.9"/><rect x="104" y="88" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.9"/><rect x="138" y="88" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="172" y="88" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="206" y="88" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="240" y="88" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="274" y="88" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="308" y="88" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="342" y="88" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="376" y="88" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="410" y="88" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="444" y="88" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="478" y="88" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="512" y="88" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="70" y="112" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.9"/><rect x="104" y="112" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.9"/><rect x="138" y="112" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="172" y="112" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="206" y="112" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="240" y="112" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="274" y="112" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="308" y="112" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="342" y="112" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="376" y="112" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="410" y="112" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="444" y="112" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="478" y="112" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="512" y="112" width="34" height="24" fill="none" stroke="currentColor" stroke-opacity="0.45"/><rect x="240" y="34" width="34" height="108" fill="none" stroke="currentColor" stroke-width="2.5"/><text x="257.0" y="28" text-anchor="middle" font-size="11">打开</text><rect x="444" y="34" width="34" height="108" fill="none" stroke="currentColor" stroke-width="2.5"/><text x="461.0" y="28" text-anchor="middle" font-size="11">打开</text>
+  <text x="60" y="92" text-anchor="end" font-size="11">每行</text>
+  <text x="60" y="106" text-anchor="end" font-size="11">一个码字</text>
+  <line x1="70" y1="150" x2="138" y2="150" stroke="currentColor"/>
+  <text x="104" y="166" text-anchor="middle" font-size="11">原数据 k</text>
+  <line x1="70" y1="176" x2="546" y2="176" stroke="currentColor" stroke-dasharray="4 3"/>
+  <text x="308" y="193" text-anchor="middle" font-size="11">RS 编码后共 n = 7k 列；每一列 ≈ 一个参与方的 view</text>
+</svg>
+<figcaption>Ligero 的承诺矩阵（示意，列数不按比例）。verifier 随机打开几列 = 打开几方的 view；Longfellow 实际打开 132 列。</figcaption>
+</figure>
+<p>Longfellow 用码率 1/7（编码后长度是原来的 7 倍）、打开 132 列。<span class="cite"><a href="https://cic.iacr.org/p/3/1/7">CiC §5</a></span></p>
 <div class="say">I haven't built a proof system, but MPC-in-the-head feels familiar from the other side: in SHIELD the parties are real servers, in Ligero the prover simulates them and the verifier audits a few views. In both, the Reed–Solomon / Shamir structure makes linear work cheap and the nonlinear Boolean work — Keccak's χ — is what you pay for.</div>
-<div class="warn">边界：最后一句「非线性布尔运算是大头」在 SHIELD 里是你实测的；在 Longfellow 里有第三方证据支持（GordieHowe、Nowhere Man，见 <a href="0004-landscape-and-positioning.html">第 0004 课</a>），但 Longfellow 的代价模型不是逐门计费 —— sumcheck 处理电路，Keccak 的贵主要来自深度和跨域连接。被追问就说「consistent with what GordieHowe measured」，别说成你测过 Longfellow。</div>
+<p class="ask">英文稿里的 Keccak 是 SHA-3 / SHAKE 哈希的底层置换，χ（chi）是它每轮唯一的非线性步骤，详见第 0003 课。</p>
+<div class="warn">边界：最后一句「非线性布尔运算是大头」在 SHIELD 里是你实测的；在 Longfellow 里有第三方证据支持（GordieHowe、Nowhere Man 两篇论文，见 <a href="0004-landscape-and-positioning.html">第 0004 课</a>），但 Longfellow 的代价模型不是逐门计费 —— sumcheck 处理电路，Keccak 的贵主要来自深度和跨域连接。被追问就说「consistent with what GordieHowe measured」，别说成你测过 Longfellow。</div>
 
 <h2>2. sumcheck：一次一个变量地把求和「剥掉」</h2>
+<div class="io"><dl>
+  <dt>组件</dt><dd><strong>sumcheck</strong>（求和校验协议，Lund–Fortnow–Karloff–Nisan 1990）</dd>
+  <dt>公开输入</dt><dd>一个 v 元多项式 g（双方都知道它的形状）和一个声称值 H</dd>
+  <dt>声称</dt><dd>H = g 在所有 2<sup>v</sup> 个 0/1 输入上的值之和</dd>
+  <dt>交互</dt><dd>v 轮，每轮 prover 发一个一元多项式，verifier 回一个随机数</dd>
+  <dt>输出</dt><dd>verifier 把「验证 2<sup>v</sup> 项求和」换成「在一个随机点 (r₁,…,r<sub>v</sub>) 上算一次 g」—— 自己只做很少的工作</dd>
+  <dt>要记住的一个数</dt><dd>可靠性误差 ≤ v·d/|F|（d = g 对每个变量的次数，|F| = 域的大小）→ <strong>域必须够大</strong></dd>
+</dl></div>
+<figure>
+<svg viewBox="0 0 640 170" width="100%" role="img" aria-label="Sumcheck peels one variable per round">
+  <defs><marker id="m3" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+  <rect x="5" y="40" width="140" height="75" rx="6" fill="none" stroke="currentColor"/><text x="75" y="62" text-anchor="middle" font-size="13">开始</text><text x="75" y="82" text-anchor="middle" font-size="11">v 个变量</text><text x="75" y="100" text-anchor="middle" font-size="11">求 2^v 项的和</text><line x1="145" y1="77" x2="165" y2="77" stroke="currentColor" marker-end="url(#m3)"/><rect x="165" y="40" width="140" height="75" rx="6" fill="none" stroke="currentColor"/><text x="235" y="62" text-anchor="middle" font-size="13">第 1 轮</text><text x="235" y="82" text-anchor="middle" font-size="11">x₁ 固定为 r₁</text><text x="235" y="100" text-anchor="middle" font-size="11">剩 v−1 个</text><line x1="305" y1="77" x2="325" y2="77" stroke="currentColor" marker-end="url(#m3)"/><rect x="325" y="40" width="140" height="75" rx="6" fill="none" stroke="currentColor"/><text x="395" y="62" text-anchor="middle" font-size="13">第 i 轮</text><text x="395" y="82" text-anchor="middle" font-size="11">x_i 固定为 r_i</text><text x="395" y="100" text-anchor="middle" font-size="11">剩 v−i 个</text><line x1="465" y1="77" x2="485" y2="77" stroke="currentColor" marker-end="url(#m3)"/><rect x="485" y="40" width="140" height="75" rx="6" fill="none" stroke="currentColor"/><text x="555" y="62" text-anchor="middle" font-size="13">结束</text><text x="555" y="82" text-anchor="middle" font-size="11">0 个变量</text><text x="555" y="100" text-anchor="middle" font-size="11">V 算一次 g(r)</text>
+  <text x="320" y="145" text-anchor="middle" font-size="11">每轮：P 发一个一元多项式 g_i → V 简单检查 → V 回随机数 r_i</text>
+  <text x="320" y="163" text-anchor="middle" font-size="11">v 轮后，「2^v 项求和」变成「1 次随机点求值」</text>
+</svg>
+<figcaption>sumcheck 一轮剥掉一个变量。</figcaption>
+</figure>
+<p>那个误差界就是为什么 Longfellow 的 ML-DSA 电路要从 F<sub>q</sub>（整数模 q = 8380417，约 2<sup>23</sup>，太小）扩到六次扩域 F<sub>q<sup>6</sup></sub>（第 0003 课）。<span class="cite"><a href="https://people.cs.georgetown.edu/jthaler/ProofsArgsAndZK.pdf">Thaler PAZK Prop. 4.1</a></span>（PAZK = Justin Thaler 的教科书 <em>Proofs, Arguments, and Zero-Knowledge</em>。）</p>
+<details class="how">
+<summary>每一轮具体检查什么</summary>
 <p>目标：让 verifier 相信 <code>H = Σ<sub>b∈{0,1}<sup>v</sup></sub> g(b)</code>，而 verifier 自己算要 2<sup>v</sup> 次。<span class="cite"><a href="https://people.cs.georgetown.edu/jthaler/ProofsArgsAndZK.pdf">Thaler PAZK §4.1</a></span></p>
 <ol>
   <li>第 1 轮：prover 发一元多项式 <code>g₁(X₁)</code>，声称它等于把 x₂…x<sub>v</sub> 全部求和后的结果；verifier 检查 <code>g₁(0) + g₁(1) = H</code>，然后随机选 <code>r₁</code>。</li>
-  <li>第 i 轮同理，把声称值变成 <code>g<sub>i−1</sub>(r<sub>i−1</sub>)</code>。</li>
+  <li>第 i 轮同理，把声称值变成 <code>g<sub>i−1</sub>(r<sub>i−1</sub>)</code>，检查 <code>g<sub>i</sub>(0) + g<sub>i</sub>(1)</code> 等于它。</li>
   <li>v 轮后 verifier 只需自己算一次 <code>g(r₁,…,r<sub>v</sub>)</code>。</li>
 </ol>
-<p>可靠性误差 <code>≤ v·d/|F|</code>（d 为每个变量的次数）—— 所以要大域，这就是为什么 Longfellow 在 F<sub>q</sub> 上要扩到 F<sub>q<sup>6</sup></sub>（第 0003 课）。<span class="cite"><a href="https://people.cs.georgetown.edu/jthaler/ProofsArgsAndZK.pdf">PAZK Prop. 4.1</a></span></p>
+</details>
 
-<h3>GKR：sumcheck 一层一层往下推</h3>
-<p>对分层电路，从输出层的声称出发，每层用一次 sumcheck 把「这一层的值」归约成「下一层多线性扩展在某点的值」，直到输入层。<span class="cite"><a href="https://people.cs.georgetown.edu/jthaler/ProofsArgsAndZK.pdf">PAZK §4.6</a></span> abhi 是 Hyrax（S&amp;P 2018）的合作者，这条线是他的老本行。</p>
-<p>Longfellow 的电路只有一种门 —— <strong>quad</strong>：<code>V<sub>j</sub>[i] = Σ Q<sub>j</sub>[i,ℓ,r] · V<sub>j+1</sub>[ℓ] · V<sub>j+1</sub>[r]</code>。这让椭圆曲线加法的深度从 5 降到 3。<span class="cite"><a href="https://cic.iacr.org/p/3/1/7">CiC §2.1</a></span></p>
+<h3>2.1 GKR：sumcheck 一层一层往下推</h3>
+<div class="io"><dl>
+  <dt>组件</dt><dd><strong>GKR</strong> 协议（Goldwasser–Kalai–Rothblum 2008，三位作者首字母）</dd>
+  <dt>公开输入</dt><dd>一张<strong>分层</strong>电路（每层的门只连到下一层）+ 一个关于输出层的声称（比如「输出是 1」）</dd>
+  <dt>输出</dt><dd>一个关于<strong>输入层</strong>的声称（「输入层编码后在某个随机点的值是 a」）—— 最后这一步由别的工具（在 Longfellow 里是 Ligero）检查</dd>
+  <dt>做法一句话</dt><dd>每层跑一次 sumcheck，把「第 j 层的值对」归约成「第 j+1 层在某个随机点的值对」，直到输入层；共 d 次（d = 层数）</dd>
+</dl></div>
+<figure>
+<svg viewBox="0 0 640 250" width="100%" role="img" aria-label="GKR reduces a claim layer by layer">
+  <defs><marker id="m4" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+  <rect x="120" y="10" width="260" height="38" rx="5" fill="none" stroke="currentColor"/><text x="250" y="26" text-anchor="middle" font-size="12">输出层</text><text x="250" y="41" text-anchor="middle" font-size="11">声称：输出 = 1</text><line x1="250" y1="48" x2="250" y2="68" stroke="currentColor" marker-end="url(#m4)"/><text x="262" y="62" font-size="10">sumcheck</text><rect x="120" y="68" width="260" height="38" rx="5" fill="none" stroke="currentColor"/><text x="250" y="84" text-anchor="middle" font-size="12">第 1 层</text><text x="250" y="99" text-anchor="middle" font-size="11">声称：某随机点值 = a₁</text><line x1="250" y1="106" x2="250" y2="126" stroke="currentColor" marker-end="url(#m4)"/><text x="262" y="120" font-size="10">sumcheck</text><rect x="120" y="126" width="260" height="38" rx="5" fill="none" stroke="currentColor"/><text x="250" y="142" text-anchor="middle" font-size="12">第 2 层</text><text x="250" y="157" text-anchor="middle" font-size="11">声称：某随机点值 = a₂</text><line x1="250" y1="164" x2="250" y2="184" stroke="currentColor" marker-end="url(#m4)"/><text x="262" y="178" font-size="10">sumcheck</text><rect x="120" y="184" width="260" height="38" rx="5" fill="none" stroke="currentColor"/><text x="250" y="200" text-anchor="middle" font-size="12">输入层 = witness</text><text x="250" y="215" text-anchor="middle" font-size="11">声称：某随机点值 = a_d</text>
+  <line x1="380" y1="203" x2="440" y2="203" stroke="currentColor" marker-end="url(#m4)"/>
+  <rect x="440" y="183" width="190" height="40" rx="5" fill="none" stroke="currentColor"/>
+  <text x="535" y="201" text-anchor="middle" font-size="12">交给 Ligero 检查</text>
+  <text x="535" y="216" text-anchor="middle" font-size="10">（witness 已被它承诺）</text>
+  <text x="60" y="120" text-anchor="middle" font-size="11">共 d 层</text>
+  <text x="60" y="136" text-anchor="middle" font-size="11">d 次 sumcheck</text>
+</svg>
+<figcaption>GKR：从输出层的声称出发，每层一次 sumcheck，把声称一路推到输入层。</figcaption>
+</figure>
+<details class="how">
+<summary>「多线性扩展」是什么</summary>
+<p>sumcheck 要的是多项式，电路一层的值是一张表。<strong>多线性扩展（multilinear extension）</strong>把一张 2<sup>v</sup> 项的表变成唯一一个「每个变量最多一次方」的 v 元多项式，它在 0/1 点上和表一致，在其他点上也有定义。GKR 的每次归约就是在这种多项式上做 sumcheck。<span class="cite"><a href="https://people.cs.georgetown.edu/jthaler/ProofsArgsAndZK.pdf">PAZK §4.6</a></span></p>
+</details>
+<p>abhi 是 Hyrax（一个基于 GKR 的零知识证明系统，IEEE S&amp;P 2018；S&amp;P = IEEE Symposium on Security and Privacy，安全四大顶会之一）的合作者，这条线是他的老本行。</p>
+
+<h3>2.2 Longfellow 的电路门：quad</h3>
+<div class="io"><dl>
+  <dt>组件</dt><dd><strong>quad 门</strong>（Longfellow 电路里唯一的门类型；quad = quadratic，二次）</dd>
+  <dt>输入</dt><dd>下一层（第 j+1 层）的任意两条线</dd>
+  <dt>输出</dt><dd>本层（第 j 层）一条线 = 很多个「系数 × 两条线之积」的和</dd>
+  <dt>好处</dt><dd>一个门就能表达「加权的乘积之和」，电路层数更少；椭圆曲线加法的深度从 5 降到 3</dd>
+</dl></div>
+<details class="how">
+<summary>公式</summary>
+<p><code>V<sub>j</sub>[i] = Σ Q<sub>j</sub>[i,ℓ,r] · V<sub>j+1</sub>[ℓ] · V<sub>j+1</sub>[r]</code>，V<sub>j</sub> 是第 j 层的线值，Q<sub>j</sub> 是公开的系数表。<span class="cite"><a href="https://cic.iacr.org/p/3/1/7">CiC §2.1</a></span></p>
+</details>
 
 <h2>3. 把两者粘起来：加密的 sumcheck</h2>
-<p>sumcheck 本身不零知识（prover 发的多项式会泄露 witness 信息）。Longfellow 的做法：prover 发 <code>m<sub>i</sub> + pad<sub>i</sub></code>，pad 预先和 witness 一起被 Ligero 承诺；最后用 Ligero 证明「把 pad 去掉后，这份 transcript 能让 sumcheck verifier 接受」。<span class="cite"><a href="https://datatracker.ietf.org/doc/draft-irtf-cfrg-longfellow/">draft-irtf-cfrg-longfellow §5</a></span></p>
-<p>这和 MPC 里的「用一次性掩码（Beaver 三元组 / 预处理随机数）把在线消息变得均匀随机」是同一种直觉 —— 可以这么类比，但别说它们是同一个东西。</p>
+<div class="io"><dl>
+  <dt>问题</dt><dd>sumcheck 本身<strong>不零知识</strong>：prover 发的多项式会泄露 witness 信息</dd>
+  <dt>Prover 输入</dt><dd>witness + 一串随机掩码 pad（一次性密码本）；两者事先一起被 Ligero 承诺</dd>
+  <dt>Prover 发出</dt><dd>每条 sumcheck 消息 m<sub>i</sub> 都发成 m<sub>i</sub> + pad<sub>i</sub>（verifier 看到的全是随机数）</dd>
+  <dt>最后证明</dt><dd>用 Ligero 证明「去掉 pad 后，这份 transcript 能让 sumcheck verifier 接受」—— 约 d 个二次等式</dd>
+  <dt>结果</dt><dd>sumcheck 的速度 + Ligero 的零知识</dd>
+</dl></div>
+<figure>
+<svg viewBox="0 0 640 230" width="100%" role="img" aria-label="Encrypted sumcheck with pads, finished by a Ligero proof">
+  <defs><marker id="m5" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+  <rect x="5" y="20" width="145" height="120" rx="6" fill="none" stroke="currentColor"/>
+  <text x="77" y="72" text-anchor="middle" font-size="13">Prover</text>
+  <text x="77" y="92" text-anchor="middle" font-size="11">知道 w, pad</text>
+  <rect x="490" y="20" width="145" height="120" rx="6" fill="none" stroke="currentColor"/>
+  <text x="562" y="72" text-anchor="middle" font-size="13">Verifier</text>
+  <text x="562" y="92" text-anchor="middle" font-size="11">只看到随机数</text>
+  <line x1="150" y1="40" x2="490" y2="40" stroke="currentColor" marker-end="url(#m5)"/><text x="320" y="35" text-anchor="middle" font-size="11">m₁ + pad₁</text><line x1="490" y1="54" x2="150" y2="54" stroke="currentColor" stroke-dasharray="3 3" marker-end="url(#m5)"/><text x="470" y="67" text-anchor="end" font-size="10">r_1</text><line x1="150" y1="76" x2="490" y2="76" stroke="currentColor" marker-end="url(#m5)"/><text x="320" y="71" text-anchor="middle" font-size="11">m₂ + pad₂</text><line x1="490" y1="90" x2="150" y2="90" stroke="currentColor" stroke-dasharray="3 3" marker-end="url(#m5)"/><text x="470" y="103" text-anchor="end" font-size="10">r_2</text><line x1="150" y1="112" x2="490" y2="112" stroke="currentColor" marker-end="url(#m5)"/><text x="320" y="107" text-anchor="middle" font-size="11">m_d + pad_d</text><line x1="490" y1="126" x2="150" y2="126" stroke="currentColor" stroke-dasharray="3 3" marker-end="url(#m5)"/><text x="470" y="139" text-anchor="end" font-size="10">r_d</text>
+  <rect x="150" y="160" width="340" height="60" rx="6" fill="none" stroke="currentColor" stroke-width="2"/>
+  <text x="320" y="182" text-anchor="middle" font-size="12">Ligero：事先承诺 w 和 pad</text>
+  <text x="320" y="202" text-anchor="middle" font-size="11">最后证明「去掉 pad 后 V 会接受」</text>
+</svg>
+<figcaption>加密的 sumcheck：实线是 prover 的消息（已加 pad），虚线是 verifier 的随机挑战；Fiat–Shamir 之后挑战由哈希产生。</figcaption>
+</figure>
+<p class="ask">出处：<a href="https://datatracker.ietf.org/doc/draft-irtf-cfrg-longfellow/">draft-irtf-cfrg-longfellow §5</a>（IRTF = Internet Research Task Force 互联网研究任务组，CFRG = Crypto Forum Research Group 其中审密码算法的小组；这是 Longfellow 的标准草案）。</p>
+<p>这和 MPC 里的「用一次性掩码（Beaver 三元组 / 预处理随机数）把在线消息变得均匀随机」是同一种直觉 —— 可以这么类比，但别说它们是同一个东西。（Beaver 三元组 = 预处理阶段生成的随机 (a, b, a·b) 的秘密分享，用来在在线阶段做乘法。）</p>
 
 <h2>4. 被问到你不懂的地方怎么办</h2>
-<p>他们可能追问 Reed–Solomon 邻近性测试、Polygero 的多项式挑战、Fiat–Shamir 的 round-by-round 可靠性。你的标准动作：</p>
+<p>他们可能追问三个话题，先知道它们各自是干什么的（黑盒）：</p>
+<table>
+<tr><th>话题</th><th>输入 → 输出</th><th>负责</th></tr>
+<tr><td><strong>RS 邻近性测试</strong>（proximity test）</td><td>被承诺的矩阵 → 「每行都接近某个 RS 码字」接受 / 拒绝</td><td>防止 prover 承诺的根本不是合法编码</td></tr>
+<tr><td><strong>Polygero</strong></td><td>同上（是新版的邻近性测试）</td><td>Longfellow v8 采用，更省证明长度</td></tr>
+<tr><td><strong>Fiat–Shamir 的 round-by-round 可靠性</strong></td><td>交互协议 → 非交互协议，以及「这样替换后仍安全」的论证</td><td>Fiat–Shamir 变换把 verifier 的随机数换成哈希；round-by-round（逐轮）可靠性是证明这种替换安全的一种标准</td></tr>
+</table>
+<p>你的标准动作：</p>
 <div class="say">I know the shape — Ligero tests that the committed rows are close to Reed–Solomon codewords with a random linear combination, and Polygero replaces the scalar challenge with a low-degree polynomial challenge — but I haven't worked through the proofs. That's exactly the part I'd want to learn from you.</div>
-<p>Polygero 一句话：把 RS 邻近性测试里的<strong>标量</strong>随机组合换成<strong>低次多项式</strong>挑战，在 128-bit 域里做到 127 bit 安全，递归后证明长度是 witness 大小的对数，所有参数在 Lean 4 里机器验证。<span class="cite"><a href="https://eprint.iacr.org/2026/2481">ePrint 2026/2481</a></span></p>
+
+<h3>4.1 Polygero 一句话</h3>
+<div class="io"><dl>
+  <dt>组件</dt><dd><strong>Polygero</strong>（Frigo &amp; shelat，ePrint 2026/2481；ePrint = IACR Cryptology ePrint Archive 密码学预印本网站；名字不是缩写）</dd>
+  <dt>输入 / 输出</dt><dd>同 Ligero 的 RS 邻近性测试：被承诺的行 → 接受 / 拒绝</dd>
+  <dt>改了什么</dt><dd>把测试里的<strong>标量</strong>随机组合换成<strong>低次多项式</strong>挑战</dd>
+  <dt>效果</dt><dd>在 128-bit 域里做到 127 bit 安全；递归后证明长度是 witness 大小的对数</dd>
+  <dt>可信度</dt><dd>所有参数在 <strong>Lean 4</strong>（一种定理证明器软件，让计算机逐步检查数学证明）里机器验证</dd>
+</dl></div>
+<p class="cite" style="vertical-align:baseline"><a href="https://eprint.iacr.org/2026/2481">ePrint 2026/2481</a></p>
 
 <h2>自测</h2>
 <p class="score"></p>
@@ -63,11 +250,11 @@
   <div class="why">RS 编码 = 秘密分享；打开若干列 = 检查若干参与方的 view。Longfellow 打开 132 列。</div>
 </div>
 <div class="quiz" data-answer="2">
-  <div class="q">Q2. sumcheck 第 i 轮 verifier 做的检查是什么？</div>
-  <button class="opt">检查 g_i 的次数恰好等于变量个数 v</button>
-  <button class="opt">检查 g_i 在随机点的值等于原始求和 H</button>
-  <button class="opt">检查 g_i(0)+g_i(1) 等于上一轮的声称值</button>
-  <div class="why">PAZK §4.1：每轮检查 g_i(0)+g_i(1) 与上一轮声称一致，然后发随机 r_i。</div>
+  <div class="q">Q2. sumcheck 跑完后，verifier 自己还剩下什么工作？</div>
+  <button class="opt">把 2^v 个 0/1 点上的值全部加一遍</button>
+  <button class="opt">重新检查 prover 发来的每个系数</button>
+  <button class="opt">在一个随机点上把多项式 g 算一次</button>
+  <div class="why">sumcheck 的输出：把 2<sup>v</sup> 项求和换成一次随机点求值（PAZK §4.1）。在 GKR 里这个随机点求值再交给下一层 / 最终交给 Ligero。</div>
 </div>
 <div class="quiz" data-answer="0">
   <div class="q">Q3. 为什么 Longfellow 的 sumcheck 消息要加 pad？</div>
@@ -90,7 +277,7 @@
 </div>
 
 <div class="source"><strong>首选原始资料</strong>
-Justin Thaler, <a href="https://people.cs.georgetown.edu/jthaler/ProofsArgsAndZK.pdf"><em>Proofs, Arguments, and Zero-Knowledge</em></a> —— §4.1（sumcheck，30 分钟）和 §4.6（GKR 概览，20 分钟）。时间够再读 §10.5（Ligero / Brakedown 多项式承诺）。</div>
+Justin Thaler, <a href="https://people.cs.georgetown.edu/jthaler/ProofsArgsAndZK.pdf"><em>Proofs, Arguments, and Zero-Knowledge</em></a>（PAZK）—— §4.1（sumcheck，30 分钟）和 §4.6（GKR 概览，20 分钟）。时间够再读 §10.5（Ligero / Brakedown 多项式承诺；Brakedown 是另一个基于线性码的证明系统，名字不是缩写）。</div>
 <p class="ask">不懂就问我 —— 比如「多线性扩展到底是什么」「为什么 RS 码能当秘密分享」，这些我可以当场给你画例子。</p>
 
 <nav class="lessons"><a href="0001-what-longfellow-proves.html">← 上一课</a><a href="0003-ml-dsa-verify-anatomy.html">下一课：拆开 ML-DSA 验签 →</a></nav>

@@ -10,50 +10,183 @@
 <body>
 <main>
 <header class="lesson">
-  <div class="kicker">Lesson 0007 · 约 15 分钟 · <a href="../index.html">返回目录</a> · 在 0003、0006 之后读</div>
+  <div class="kicker">Lesson 0007 · 约 25 分钟 · <a href="../index.html">返回目录</a> · 在 0003、0006 之后读</div>
   <h1>Falcon 验签拆解：为什么藏公钥几乎免费</h1>
-  <p class="goal"><strong>这一课的收获：</strong>能在 slide 第 8 页前用 60 秒讲清 Falcon 验签的四步，算出「藏公钥时 Falcon ≈ 9 次 Keccak、ML-DSA ≈ 116 次」，并说清楚这个估算的边界。这是方向 F（「FLOCK 签发 + Longfellow 出示」）的技术底气。</p>
+  <p class="goal"><strong>这一课的收获：</strong>被问到 Falcon 时能用 60 秒讲清 Falcon 验签的四步（每步的输入和输出），算出「藏公钥时 Falcon ≈ 9 次 Keccak、ML-DSA ≈ 116 次」，并说清楚这个估算的边界。这是方向 F（「发证方改用 Falcon 签名，Longfellow 里新写 Falcon 验签电路」）的技术底气。</p>
 </header>
 
-<h2>1. 故事线（第 7 页）</h2>
-<p>你的两篇门限工作都在<strong>签发侧</strong>：SHIELD 签出标准 ML-DSA，FLOCK 签出与 Falcon 兼容的签名。下一步是<strong>持有人侧</strong>：holder 用 Longfellow 证明「我持有一张这样签发的凭证」。</p>
+<p><strong>怎么读这一课：</strong>每个组件先给一张「黑盒卡片」（输入、输出、负责什么），折叠的「细节（可跳过）」讲内部怎么算，面谈不需要。ZK 的基本名词（statement 公开陈述、witness 秘密证据、prover、verifier）见<a href="0001-what-longfellow-proves.html">第 0001 课第 0 节</a>。</p>
+
+<details open>
+<summary><strong>本课缩写速查</strong>（正文里每个缩写第一次出现时也会写全称和意思）</summary>
+<table>
+<tr><th>缩写</th><th>全称</th><th>一句话意思</th></tr>
+<tr><td>Falcon</td><td>Fast-Fourier Lattice-based Compact Signatures over NTRU</td><td>一种基于格的后量子签名，签名很短；NTRU 是它用的那类格结构的名字。</td></tr>
+<tr><td>FN-DSA / FIPS 206</td><td>FFT over NTRU-Lattice-Based Digital Signature Algorithm</td><td>NIST 正在标准化的 Falcon 版本，标准编号 FIPS 206，目前还是草案。</td></tr>
+<tr><td>ML-DSA</td><td>Module-Lattice-Based Digital Signature Algorithm</td><td>基于模格的数字签名算法，NIST 后量子签名标准 FIPS 204；ML-DSA-44 是最小参数集。</td></tr>
+<tr><td>FIPS</td><td>Federal Information Processing Standard</td><td>美国联邦信息处理标准。</td></tr>
+<tr><td>NIST</td><td>National Institute of Standards and Technology</td><td>美国国家标准与技术研究院；「Level I」是它定义的最低一档安全等级。</td></tr>
+<tr><td>KAT</td><td>Known Answer Test</td><td>已知答案测试：用标准给出的输入，检查输出与官方答案逐比特一致。</td></tr>
+<tr><td>PQ</td><td>Post-Quantum</td><td>后量子：量子计算机出现后仍安全。</td></tr>
+<tr><td>SHAKE128 / SHAKE256</td><td>Secure Hash Algorithm + KECCAK 的合成名（FIPS 202 没有官方展开），128 / 256-bit 安全强度</td><td>SHA-3 家族里「想要多长输出就挤多长」的哈希。</td></tr>
+<tr><td>Keccak-f[1600]</td><td>（算法名，不是缩写）</td><td>SHAKE 底层的置换，作用在 1600 bit 状态上；本课用「Keccak 次数」衡量成本。</td></tr>
+<tr><td>NTT</td><td>Number Theoretic Transform</td><td>数论变换（有限域上的 FFT），做快速多项式乘法。</td></tr>
+<tr><td>AND 门</td><td>AND gate</td><td>布尔电路里的「与」门；ZK / MPC 里非线性门是主要成本。</td></tr>
+<tr><td>SHIELD / FLOCK</td><td>（你的项目名）</td><td>SHIELD：门限 ML-DSA；FLOCK：与 Falcon 兼容的门限签名。都在签发侧。</td></tr>
+<tr><td>pk</td><td>public key</td><td>公钥。</td></tr>
+<tr><td>B / F / A</td><td>（不是缩写）</td><td>grilling 时给三个「下一步」方向起的代号，见第 1 节。</td></tr>
+</table>
+</details>
+
+<h2>1. 故事线（slide 第 6 页）</h2>
+<p>Longfellow 今天证明的是「我持有一张 ECDSA 签名的证件」。要后量子，只需把<strong>发证方的签名算法</strong>换成 ML-DSA（Module-Lattice-Based Digital Signature Algorithm，NIST 后量子签名标准 FIPS 204）或 Falcon（Fast-Fourier Lattice-based Compact Signatures over NTRU，另一种格签名），holder（持有人）侧的电路改成验证新签名。发证方是单机签还是门限签，对持有人侧没有区别，所以这里不提 SHIELD / FLOCK。</p>
+<figure>
+<svg viewBox="0 0 640 130" width="100%" role="img" aria-label="签发侧到持有人侧的故事线">
+  <defs><marker id="m7a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+  <rect x="5" y="20" width="190" height="70" rx="6" fill="none" stroke="currentColor"/>
+  <text x="100" y="42" text-anchor="middle" font-size="13">发证方签名</text>
+  <text x="100" y="62" text-anchor="middle" font-size="11" text-decoration="line-through">ECDSA P-256</text>
+  <text x="100" y="80" text-anchor="middle" font-size="11">→ ML-DSA / Falcon</text>
+  <rect x="225" y="35" width="150" height="40" rx="6" fill="none" stroke="currentColor"/>
+  <text x="300" y="60" text-anchor="middle" font-size="12">一张后量子凭证</text>
+  <rect x="405" y="20" width="230" height="70" rx="6" fill="none" stroke="currentColor" stroke-dasharray="4 3"/>
+  <text x="520" y="42" text-anchor="middle" font-size="13">持有人侧（下一步）</text>
+  <text x="520" y="62" text-anchor="middle" font-size="11">Longfellow 证明</text>
+  <text x="520" y="80" text-anchor="middle" font-size="11">「我持有它」</text>
+  <line x1="195" y1="55" x2="225" y2="55" stroke="currentColor" marker-end="url(#m7a)"/>
+  <line x1="375" y1="55" x2="405" y2="55" stroke="currentColor" marker-end="url(#m7a)"/>
+  <text x="320" y="118" text-anchor="middle" font-size="11">虚线框 = 还没做的部分</text>
+</svg>
+<figcaption>slide 第 6 页的故事线。</figcaption>
+</figure>
 <ul>
-  <li><strong>B（ML-DSA 端到端）</strong>：SHIELD 的签名和单方签名逐比特相同，所以他们现成的 ML-DSA 电路一行不用改。门槛最低，先讲。</li>
+  <li><strong>B（ML-DSA 放进完整 mdoc 陈述）</strong>：验签电路已经有了（858 ms），下一步是和 MSO 哈希、属性、device binding 拼起来测端到端。门槛最低，先讲。</li>
   <li><strong>F（Falcon 电路）</strong>：Longfellow 现在没有 Falcon 电路。研究味更重，卖点见第 3 节。</li>
-  <li><strong>A（藏公钥的 ML-DSA）</strong>：备用。他们说「PQ 只做 ML-DSA」时拿出来。</li>
+  <li><strong>A（藏公钥的 ML-DSA）</strong>：备用。他们说「PQ（Post-Quantum，后量子）只做 ML-DSA」时拿出来。</li>
 </ul>
 
 <h2>2. Falcon 验签的四步</h2>
+<div class="io"><dl>
+  <dt>整体</dt><dd><strong>Falcon Verify</strong>（round-3 规范 v1.2，Alg. 16 = Algorithm 16）</dd>
+  <dt>输入</dt><dd>公钥 pk = 多项式 h；消息 m；签名 = (盐 r, 压缩后的 s)</dd>
+  <dt>输出</dt><dd>接受 / 拒绝</dd>
+  <dt>一句话</dt><dd>把消息哈希成一个多项式 c，用签名和公钥算出 (s₁, s₂)，检查它们「够短」</dd>
+</dl></div>
+<figure>
+<svg viewBox="0 0 640 190" width="100%" role="img" aria-label="Falcon 验签流程：HashToPoint、Decompress、多项式乘法、范数检查">
+  <defs><marker id="m7b" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+  <text x="60" y="44" text-anchor="middle" font-size="11">盐 r ‖ 消息 m</text>
+  <rect x="120" y="22" width="140" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="2.5"/>
+  <text x="190" y="42" text-anchor="middle" font-size="12">① HashToPoint</text>
+  <text x="190" y="59" text-anchor="middle" font-size="11">SHAKE256 → c</text>
+  <text x="60" y="144" text-anchor="middle" font-size="11">签名里的 s</text>
+  <rect x="120" y="122" width="140" height="46" rx="6" fill="none" stroke="currentColor"/>
+  <text x="190" y="142" text-anchor="middle" font-size="12">② Decompress</text>
+  <text x="190" y="159" text-anchor="middle" font-size="11">s → s₂</text>
+  <text x="355" y="22" text-anchor="middle" font-size="11">公钥 h</text>
+  <line x1="355" y1="28" x2="355" y2="70" stroke="currentColor" marker-end="url(#m7b)"/>
+  <rect x="290" y="72" width="130" height="46" rx="6" fill="none" stroke="currentColor"/>
+  <text x="355" y="92" text-anchor="middle" font-size="12">③ s₁ = c − s₂·h</text>
+  <text x="355" y="109" text-anchor="middle" font-size="11">mod q，一次乘法</text>
+  <rect x="445" y="72" width="115" height="46" rx="6" fill="none" stroke="currentColor"/>
+  <text x="502" y="92" text-anchor="middle" font-size="12">④ 范数检查</text>
+  <text x="502" y="109" text-anchor="middle" font-size="11">(s₁, s₂) 够短？</text>
+  <rect x="580" y="72" width="55" height="46" rx="6" fill="none" stroke="currentColor"/>
+  <text x="607" y="92" text-anchor="middle" font-size="12">接受</text>
+  <text x="607" y="109" text-anchor="middle" font-size="12">/ 拒绝</text>
+  <line x1="105" y1="45" x2="120" y2="45" stroke="currentColor" marker-end="url(#m7b)"/>
+  <line x1="105" y1="145" x2="120" y2="145" stroke="currentColor" marker-end="url(#m7b)"/>
+  <line x1="260" y1="50" x2="290" y2="85" stroke="currentColor" marker-end="url(#m7b)"/>
+  <line x1="260" y1="140" x2="290" y2="105" stroke="currentColor" marker-end="url(#m7b)"/>
+  <line x1="420" y1="95" x2="445" y2="95" stroke="currentColor" marker-end="url(#m7b)"/>
+  <line x1="560" y1="95" x2="580" y2="95" stroke="currentColor" marker-end="url(#m7b)"/>
+  <text x="380" y="180" text-anchor="middle" font-size="11">粗框 = 唯一要跑 Keccak 的一步</text>
+</svg>
+<figcaption>Falcon 验签的四步。公钥 h 只在第 ③ 步作为一个多项式用一次，不需要任何展开。</figcaption>
+</figure>
+
+<table>
+<tr><th>步骤</th><th>输入</th><th>输出</th><th>负责</th></tr>
+<tr><td>① <strong>HashToPoint</strong></td><td>盐 r（40 字节）‖ 消息 m</td><td>多项式 c（n 个系数，每个 mod q）</td><td>把消息变成一个「随机」目标多项式；用 SHAKE256，是唯一的哈希步骤</td></tr>
+<tr><td>② <strong>Decompress</strong></td><td>签名里的压缩串 s</td><td>多项式 s₂，或「解码失败 → 拒绝」</td><td>把变长编码还原成系数</td></tr>
+<tr><td>③ <strong>多项式乘法</strong></td><td>c、s₂、公钥 h</td><td>s₁ = c − s₂·h mod q</td><td>格算术；q = 12289，n = 512（NIST Level I，最低一档安全等级）</td></tr>
+<tr><td>④ <strong>范数检查</strong></td><td>s₁、s₂</td><td>接受 / 拒绝</td><td>接受当且仅当 ‖(s₁, s₂)‖² ≤ ⌊β²⌋，即两者「够短」</td></tr>
+</table>
+<p><strong>关键对比：Falcon 的公钥 <code>pk = h</code> 就是一个多项式。</strong>ML-DSA 的公钥是种子 <code>ρ</code> 加 <code>t₁</code>，验签要先用 SHAKE128 从 <code>ρ</code> 展开整个矩阵 <code>Â</code>（ExpandA），还要算 <code>tr = H(pk)</code>（公钥的哈希）。</p>
+
+<details class="how">
+<summary>每一步内部怎么算</summary>
 <p>来源：Falcon round-3 规范 v1.2，Alg. 16（Verify）和 Alg. 3（HashToPoint）。<span class="cite"><a href="https://falcon-sign.info/falcon.pdf">falcon.pdf</a></span></p>
 <ol>
   <li><code>c ← HashToPoint(r‖m)</code>：SHAKE-256 吸收 40 字节盐 <code>r</code> 和消息，然后每次挤出 16 bit 得到 <code>t</code>。<strong>只有 <code>t &lt; 5q = 61445</code> 才收下</strong>，<code>c_i = t mod q</code>，凑满 n 个系数为止。（<code>k = ⌊2<sup>16</sup>/q⌋ = 5</code>，拒绝采样是为了让 <code>c_i</code> 均匀。）</li>
-  <li><code>s₂ ← Decompress(s)</code>：签名里的 <code>s₂</code> 是变长编码（Golomb-Rice 风格），解码失败直接拒绝。</li>
-  <li><code>s₁ ← c − s₂·h mod q</code>：一次多项式乘法，<code>q = 12289</code>，<code>n = 512</code>（Level I）。</li>
-  <li>接受当且仅当 <code>‖(s₁, s₂)‖² ≤ ⌊β²⌋</code>：<code>s₁</code> 先规约到 <code>[−q/2, q/2]</code>，然后算整数平方和，不开根号。</li>
+  <li><code>s₂ ← Decompress(s)</code>：签名里的 <code>s₂</code> 是变长编码（Golomb-Rice 风格，一种对小整数很省空间的编码），解码失败直接拒绝。</li>
+  <li><code>s₁ ← c − s₂·h mod q</code>：一次多项式乘法。</li>
+  <li><code>s₁</code> 先规约到 <code>[−q/2, q/2]</code>，然后算整数平方和，不开根号。</li>
 </ol>
-<p><strong>公钥 <code>pk = h</code> 就是一个多项式。</strong>对比 ML-DSA：公钥是种子 <code>ρ</code> 加 <code>t₁</code>，验签要先用 SHAKE128 从 <code>ρ</code> 展开整个矩阵 <code>Â</code>（ExpandA），还要算 <code>tr = H(pk)</code>。</p>
+</details>
 
-<h2>3. Keccak 次数怎么算</h2>
+<h2>3. 藏公钥时，Keccak 次数差多少</h2>
+<div class="io"><dl>
+  <dt>场景</dt><dd>持有人不想暴露是哪个发证方签的（公钥本身会成为追踪标识），于是把公钥从 <strong>statement（公开）</strong>挪到 <strong>witness（秘密）</strong></dd>
+  <dt>后果</dt><dd>原来 verifier 在电路外做的「公钥相关计算」，现在必须搬进电路里证明</dd>
+  <dt>ML-DSA</dt><dd>要搬进电路：ExpandA（ρ → Â）+ tr = H(pk) → 多出约 106 次 Keccak</dd>
+  <dt>Falcon</dt><dd>公钥 h 直接作为 witness 承诺，没有展开、没有额外哈希 → 多出 0 次</dd>
+</dl></div>
+<figure>
+<svg viewBox="0 0 640 220" width="100%" role="img" aria-label="Keccak 置换次数对比：ML-DSA-44 公钥公开约 10、隐藏约 116；Falcon-512 公开和隐藏都约 9">
+  <text x="150" y="40" text-anchor="end" font-size="12">ML-DSA-44 公开</text>
+  <rect x="160" y="26" width="36" height="22" fill="currentColor" fill-opacity=".35" stroke="currentColor"/>
+  <text x="204" y="42" font-size="12">≈ 10</text>
+  <text x="150" y="80" text-anchor="end" font-size="12">ML-DSA-44 隐藏</text>
+  <rect x="160" y="66" width="36" height="22" fill="currentColor" fill-opacity=".35" stroke="currentColor"/>
+  <rect x="196" y="66" width="346" height="22" fill="none" stroke="currentColor" stroke-width="2"/>
+  <text x="369" y="82" text-anchor="middle" font-size="11">ExpandA ≈ 96</text>
+  <rect x="542" y="66" width="36" height="22" fill="none" stroke="currentColor" stroke-width="2"/>
+  <text x="560" y="82" text-anchor="middle" font-size="10">tr</text>
+  <text x="584" y="82" font-size="12">≈116</text>
+  <text x="150" y="130" text-anchor="end" font-size="12">Falcon-512 公开</text>
+  <rect x="160" y="116" width="32" height="22" fill="currentColor" fill-opacity=".35" stroke="currentColor"/>
+  <text x="200" y="132" font-size="12">≈ 9</text>
+  <text x="150" y="170" text-anchor="end" font-size="12">Falcon-512 隐藏</text>
+  <rect x="160" y="156" width="32" height="22" fill="currentColor" fill-opacity=".35" stroke="currentColor"/>
+  <text x="200" y="172" font-size="12">≈ 9（不变）</text>
+  <text x="320" y="208" text-anchor="middle" font-size="11">灰色 = 验签本身的哈希；空心粗框 = 藏公钥才多出的部分</text>
+</svg>
+<figcaption>只数 Keccak-f[1600] 置换次数的估算，不是电路实测。每次置换 ≈ 38,400 个 AND 门：Falcon 约 0.35M AND，ML-DSA 藏公钥时约 4.5M AND。</figcaption>
+</figure>
 <table>
 <tr><th></th><th>公钥公开</th><th>公钥隐藏</th><th>多出来的部分</th></tr>
 <tr><td>ML-DSA-44</td><td>≈ 10</td><td>≈ 116</td><td>ExpandA：16 个多项式 × ≤ 6 个 SHAKE128 块 ≈ 96；<code>tr</code>：1312 B 公钥 ÷ 136 B rate ≈ 10</td></tr>
 <tr><td>Falcon-512</td><td>≈ 9</td><td>≈ 9</td><td>无：<code>h</code> 直接作为 witness 承诺，不需要展开</td></tr>
 </table>
-<p>Falcon 的 ≈ 9 是这样算的：要 512 个系数，每个 2 字节，接受率 61445/65536 ≈ 0.94，所以平均需要约 1092 字节输出。SHAKE-256 的 rate 是 136 字节，1092 ÷ 136 ≈ 8.03，再加上吸收那一下，约 9 次置换。每次 Keccak-f[1600] ≈ 38,400 个 AND 门，所以 Falcon 约 0.35M AND，ML-DSA 藏公钥时约 4.5M AND。</p>
+<details class="how">
+<summary>Falcon 的 ≈ 9 是怎么算出来的</summary>
+<p>要 512 个系数，每个 2 字节，接受率 61445/65536 ≈ 0.94，所以平均需要约 1092 字节输出。SHAKE-256 的 rate（每次置换能挤出的字节数）是 136 字节，1092 ÷ 136 ≈ 8.03，再加上吸收那一下，约 9 次置换。每次 Keccak-f[1600] ≈ 38,400 个 AND 门，所以 Falcon 约 0.35M AND（M = 百万），ML-DSA 藏公钥时约 4.5M AND。</p>
+</details>
 <div class="warn"><strong>诚实的边界（他们一定会追问，主动说也行）：</strong>
 <ul>
   <li>这是<strong>只数 Keccak</strong>的估算，不是电路实测。Falcon 也有它自己的贵处：Decompress 是变长编码，放进电路不便宜；平方范数要对 1024 个系数做整数平方加和。</li>
   <li>HashToPoint 的拒绝采样次数取决于数据，电路要按上限布置，或者让 prover 提供接受位置再验证（类似他们在 SampleInBall 里用 prover 提供 index 的做法，见第 0006 课）。</li>
-  <li>数字按 <strong>round-3 规范</strong>算；<strong>FIPS 206（FN-DSA）还是草案</strong>，定稿时细节可能变。</li>
+  <li>数字按 <strong>round-3 规范</strong>算；<strong>FIPS 206（FN-DSA = FFT over NTRU-Lattice-Based Digital Signature Algorithm，NIST 标准化中的 Falcon）还是草案</strong>，定稿时细节可能变。</li>
   <li>FLOCK 输出的是「与 Falcon 兼容」的签名。讲的时候用这个词，不要说「FIPS 206 签名」。</li>
 </ul></div>
 
 <h2>4. 一个值得想的点：Decompress 要不要进电路</h2>
-<p>holder 要证明的是「存在一个合法签名」。如果直接把 <code>s₂</code> 当 witness，跳过 Decompress，电路证明的是「存在短向量 <code>(s₁, s₂)</code> 满足 <code>s₁ + s₂h = c</code>」，这正是 Falcon 不可伪造性所依赖的困难问题。直觉上安全性没丢，还省掉一个变长解码电路。<strong>这只是一个想法，没有证明</strong>（比如编码长度上限带来的差别）。面谈里把它说成 "one question I'd want to work out"，不要说成结论。</p>
-<p>域的选择：<code>q − 1 = 12288 = 3·2<sup>12</sup></code>，所以 <code>𝔽<sub>q</sub></code> 里有 1024 次单位根，512 点 negacyclic NTT 可以直接做。他们为 ML-DSA 用的是 <code>𝔽<sub>q</sub></code> 的 6 次扩张（<code>Fp24_6</code>，为了 sumcheck 的 soundness）；Falcon 大概也要类似的扩张。这是一个可以问 Matteo 的问题。</p>
+<div class="io"><dl>
+  <dt>想法</dt><dd>不在电路里跑 Decompress，直接把解码后的 s₂ 当 witness</dd>
+  <dt>电路输入</dt><dd>公开：c（或 r‖m）；秘密：s₂（以及藏公钥时的 h）</dd>
+  <dt>电路证明</dt><dd>「存在短向量 (s₁, s₂) 满足 s₁ + s₂h = c」</dd>
+  <dt>好处</dt><dd>省掉一个变长解码电路</dd>
+  <dt>状态</dt><dd><strong>只是一个想法，没有证明</strong></dd>
+</dl></div>
+<p>直觉：这正是 Falcon 不可伪造性所依赖的困难问题，安全性似乎没丢。但没有证明（比如编码长度上限带来的差别）。面谈里把它说成 "one question I'd want to work out"，不要说成结论。</p>
+<details class="how">
+<summary>域的选择（可以问 Matteo 的问题）</summary>
+<p><code>q − 1 = 12288 = 3·2<sup>12</sup></code>，所以 <code>𝔽<sub>q</sub></code> 里有 1024 次单位根，512 点 negacyclic NTT（模 Xⁿ + 1 的多项式乘法所用的 NTT = Number Theoretic Transform 数论变换）可以直接做。他们为 ML-DSA 用的是 <code>𝔽<sub>q</sub></code> 的 6 次扩张（<code>Fp24_6</code>，为了 sumcheck 的 soundness 可靠性）；Falcon 大概也要类似的扩张。这是一个可以问 Matteo 的问题。</p>
+</details>
 
 <h2>5. 60 秒口头版本</h2>
-<div class="say">Both of my threshold works sit on the issuer side: SHIELD produces standard ML-DSA signatures and FLOCK produces Falcon-compatible ones. The natural next step is the holder side. For ML-DSA that needs no circuit change at all, because SHIELD's signatures are bit-identical to FIPS 204. Falcon is the more interesting one: its public key is a single polynomial, so hiding the key costs essentially nothing extra in hashing. By my count that's about nine Keccak permutations, against roughly a hundred and sixteen for ML-DSA with a hidden key. That's only the hashing, of course. Decompress and the norm check have their own cost, and FIPS 206 isn't final yet. But I think it's worth measuring.</div>
+<div class="say">To make the credential post-quantum, the issuer only has to swap ECDSA for a lattice signature; the proof system is already hash-based. For ML-DSA your circuit already exists, so the next step is putting it into the full mdoc statement and measuring end to end. Falcon is the more interesting one: its public key is a single polynomial, so hiding the key costs essentially nothing extra in hashing. By my count that's about nine Keccak permutations, against roughly a hundred and sixteen for ML-DSA with a hidden key. That's only the hashing, of course. Decompress and the norm check have their own cost, and FIPS 206 isn't final yet. But I think it's worth measuring.</div>
 
 <h2>自测</h2>
 <p class="score"></p>
@@ -72,14 +205,14 @@
   <div class="why">k = ⌊2^16/q⌋ = 5，t &lt; kq 时收下并取 t mod q，保证均匀。</div>
 </div>
 <div class="quiz" data-answer="1">
-  <div class="q">Q3. 方向 B 为什么不用改 Longfellow 的 ML-DSA 电路？</div>
-  <button class="opt">B 只证明签名的格算术部分，跳过哈希</button>
-  <button class="opt">SHIELD 的输出与 FIPS 204 签名逐比特相同</button>
-  <button class="opt">Longfellow 电路本来就支持门限签名格式</button>
-  <div class="why">门限签发对 holder 和 verifier 不可见：签名就是标准签名，过 NIST KAT。</div>
+  <div class="q">Q3. 让 mdoc 后量子，持有人侧要改的是什么？</div>
+  <button class="opt">换掉整个证明系统，改用格基证明</button>
+  <button class="opt">电路里那一步验签，换成验证新签名</button>
+  <button class="opt">什么都不用改，ECDSA 电路可以照用</button>
+  <div class="why">证明系统已经只依赖哈希；只有电路里检查发证方签名的那一块要换成 ML-DSA 或 Falcon 验签。</div>
 </div>
 <div class="recall">
-  <div class="q">回忆练习：合上本页，写出 Falcon 验签四步，以及 ML-DSA-44 藏公钥时那 ≈ 116 次置换各来自哪里。</div>
+  <div class="q">回忆练习：合上本页，写出 Falcon 验签四步各自的输入和输出，以及 ML-DSA-44 藏公钥时那 ≈ 116 次置换各来自哪里。</div>
   <textarea></textarea>
 </div>
 

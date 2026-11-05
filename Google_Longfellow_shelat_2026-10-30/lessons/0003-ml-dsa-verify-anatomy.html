@@ -10,29 +10,203 @@
 <body>
 <main>
 <header class="lesson">
-  <div class="kicker">Lesson 0003 · 约 30 分钟 · <a href="../index.html">返回目录</a></div>
+  <div class="kicker">Lesson 0003 · 约 40 分钟 · <a href="../index.html">返回目录</a></div>
   <h1>拆开 ML-DSA 验签：哪些是 Keccak，哪些是格算术</h1>
-  <p class="goal"><strong>这一课的收获：</strong>你冷邮件里那句 "proving ML-DSA verification in ZK becomes mostly a Keccak problem" 是 abhi 回信的原因。这一课让你能把它<strong>拆到算法行号</strong>，并说清「公钥公开」和「公钥隐藏」差了 10 倍以上。这是面谈里最可能被深挖的一段。</p>
+  <p class="goal"><strong>这一课的收获：</strong>你冷邮件里那句 "proving ML-DSA verification in ZK becomes mostly a Keccak problem" 是 abhi 回信的原因。这一课让你能把验签拆成几个黑盒步骤，说清每步吃什么、吐什么、哪几步是哈希，并说清「公钥公开」和「公钥隐藏」差了 10 倍以上。这是面谈里最可能被深挖的一段。</p>
 </header>
 
-<h2>1. FIPS 204 Algorithm 8：ML-DSA.Verify_internal</h2>
-<p>逐行（<a href="https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.204.pdf">FIPS 204</a>），右边标出在电路里属于哪一类：</p>
+<p><strong>怎么读这一课：</strong>每个步骤先给「黑盒卡片」（输入 / 输出 / 负责什么）；折叠的「细节（可跳过）」是 FIPS 204 里的逐行写法和参数，面谈只需要黑盒这一层。prover、verifier、statement、witness 的定义见 <a href="0001-what-longfellow-proves.html">第 0001 课第 0 节</a>。</p>
+
+<details open>
+<summary><strong>本课缩写与符号速查</strong>（正文里第一次出现时也会解释）</summary>
+<table>
+<tr><th>缩写 / 符号</th><th>全称</th><th>一句话意思</th></tr>
+<tr><td>ML-DSA</td><td>Module-Lattice-Based Digital Signature Algorithm</td><td>基于模格的数字签名算法，NIST 的后量子签名标准（原名 CRYSTALS-Dilithium）。</td></tr>
+<tr><td>ML-DSA-44 / 65 / 87</td><td>三个参数集</td><td>数字是公开矩阵 A 的尺寸 k×ℓ：4×4、6×5、8×7；越大越安全、越慢。</td></tr>
+<tr><td>NIST</td><td>National Institute of Standards and Technology</td><td>美国国家标准与技术研究院。</td></tr>
+<tr><td>FIPS 204</td><td>Federal Information Processing Standard 204</td><td>美国联邦信息处理标准第 204 号 = ML-DSA 的正式规范。</td></tr>
+<tr><td>SHA-3</td><td>Secure Hash Algorithm 3</td><td>第三代标准哈希家族（FIPS 202），底层是 Keccak 置换。</td></tr>
+<tr><td>SHAKE128 / SHAKE256</td><td>SHA-3 家族的两个可变长输出函数（XOF = eXtendable-Output Function）</td><td>想要多长输出就挤多长；128 / 256 是安全强度（bit）。</td></tr>
+<tr><td>Keccak-f[1600]</td><td>Keccak 置换，状态 1600 bit</td><td>SHA-3 / SHAKE 每处理一块数据就调用一次的核心函数；ZK 里的成本以它的调用次数计。</td></tr>
+<tr><td>χ（chi）</td><td>Keccak 每轮五步之一</td><td>唯一的非线性步骤，所有 AND 门都在这里。</td></tr>
+<tr><td>AND 门</td><td>布尔「与」门</td><td>布尔电路里的乘法；ZK / MPC 的成本主要按它数（XOR 几乎免费）。</td></tr>
+<tr><td>NTT / NTT⁻¹</td><td>Number Theoretic Transform / 逆变换</td><td>数论变换：把多项式乘法变成逐点乘法的快速算法。</td></tr>
+<tr><td>F<sub>q</sub>, F<sub>q<sup>6</sup></sub></td><td>整数模 q 的有限域 / 它的六次扩域</td><td>ML-DSA 的 q = 8380417；扩域让域变大，满足 sumcheck 的可靠性要求。</td></tr>
+<tr><td>GF(2<sup>128</sup>)</td><td>Galois Field，128 bit 二元域</td><td>元素是 128 bit 串，加法 = XOR；适合比特运算。</td></tr>
+<tr><td>MAC</td><td>Message Authentication Code</td><td>消息认证码；这里指证明两个域里是同一份 witness 的随机检查。</td></tr>
+<tr><td>ZK / MPC</td><td>Zero-Knowledge / Multi-Party Computation</td><td>零知识 / 多方安全计算。</td></tr>
+<tr><td>S&amp;P</td><td>IEEE Symposium on Security and Privacy</td><td>安全四大顶会之一。</td></tr>
+<tr><td>ePrint</td><td>IACR Cryptology ePrint Archive</td><td>密码学预印本网站（IACR = International Association for Cryptologic Research）。</td></tr>
+<tr><td>SHIELD</td><td>（你的系统名）</td><td>你的门限 ML-DSA：在 MPC 里联合算出标准 ML-DSA 签名。</td></tr>
+<tr><td>Mcycles</td><td>Million CPU cycles</td><td>百万个 CPU 时钟周期，SHIELD 的计时单位。</td></tr>
+<tr><td>pk, σ, M</td><td>public key / signature / message</td><td>公钥 / 签名 / 消息。</td></tr>
+</table>
+</details>
+
+<h2>0. 在 ZK 里，谁提供什么</h2>
+<p>这一课的场景是「<strong>签名持有证明</strong>（proof of possession）」：用户证明「我手里有一个能被某公钥验证通过的 ML-DSA 签名」，但不交出签名。用第 0001 课的名词：</p>
+<div class="io"><dl>
+  <dt>电路 R</dt><dd>就是 ML-DSA 的验签算法 Verify（下一节拆开）</dd>
+  <dt>statement</dt><dd>消息 M（或其摘要）；<strong>公钥公开</strong>时还有公钥 pk</dd>
+  <dt>witness</dt><dd>签名 σ；<strong>公钥隐藏</strong>时公钥 pk 也在 witness 里</dd>
+  <dt>prover</dt><dd>持有签名的用户手机：输入 statement + witness，输出证明 π</dd>
+  <dt>verifier</dt><dd>网站：输入 statement + π，输出接受 / 拒绝</dd>
+</dl></div>
+<p>「公钥公开还是隐藏」决定了电路有多大 —— 这是本课的主线。</p>
+
+<h2>1. ML-DSA 验签：先看整体</h2>
+<div class="io"><dl>
+  <dt>算法</dt><dd><strong>ML-DSA.Verify</strong>（FIPS 204 = Federal Information Processing Standard 204，NIST 的 ML-DSA 规范；内部版本是 Algorithm 8，Verify_internal）</dd>
+  <dt>输入</dt><dd>公钥 pk、消息 M、签名 σ</dd>
+  <dt>输出</dt><dd>接受 / 拒绝</dd>
+  <dt>核心思路</dt><dd>签名里有一个「挑战哈希」c̃。验签者用公钥和签名<strong>重新算一遍</strong>这个哈希，看是否和签名里的 c̃ 一致，并检查签名分量 z 足够「小」</dd>
+</dl></div>
+
+<figure>
+<svg viewBox="0 0 640 365" width="100%" role="img" aria-label="ML-DSA Verify data flow with Keccak-heavy steps shaded">
+  <defs><marker id="v3" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+  <rect x="40" y="10" width="80" height="30" rx="5" fill="none" stroke="currentColor"/>
+  <text x="80" y="30" text-anchor="middle" font-size="13">pk</text>
+  <rect x="330" y="10" width="80" height="30" rx="5" fill="none" stroke="currentColor"/>
+  <text x="370" y="30" text-anchor="middle" font-size="13">M</text>
+  <rect x="505" y="10" width="80" height="30" rx="5" fill="none" stroke="currentColor"/>
+  <text x="545" y="30" text-anchor="middle" font-size="13">σ</text>
+
+  <rect x="5" y="70" width="150" height="44" rx="5" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="2" stroke-dasharray="6 3"/>
+  <text x="80" y="89" text-anchor="middle" font-size="12">ExpandA(ρ) → Â</text>
+  <text x="80" y="106" text-anchor="middle" font-size="10">SHAKE128 ×96</text>
+  <rect x="165" y="70" width="130" height="44" rx="5" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="2" stroke-dasharray="6 3"/>
+  <text x="230" y="89" text-anchor="middle" font-size="12">tr = H(pk)</text>
+  <text x="230" y="106" text-anchor="middle" font-size="10">SHAKE256 ×10</text>
+  <rect x="305" y="70" width="140" height="44" rx="5" fill="currentColor" fill-opacity="0.12" stroke="currentColor"/>
+  <text x="375" y="89" text-anchor="middle" font-size="12">μ = H(tr ‖ M′)</text>
+  <text x="375" y="106" text-anchor="middle" font-size="10">SHAKE256</text>
+  <rect x="455" y="70" width="180" height="44" rx="5" fill="currentColor" fill-opacity="0.12" stroke="currentColor"/>
+  <text x="545" y="89" text-anchor="middle" font-size="12">c = SampleInBall(c̃)</text>
+  <text x="545" y="106" text-anchor="middle" font-size="10">SHAKE256</text>
+
+  <rect x="80" y="150" width="480" height="44" rx="5" fill="none" stroke="currentColor"/>
+  <text x="320" y="169" text-anchor="middle" font-size="12">w′ = Â·z − c·t₁·2^d</text>
+  <text x="320" y="186" text-anchor="middle" font-size="10">NTT + mod q 乘法（格算术，便宜）</text>
+
+  <rect x="80" y="225" width="230" height="40" rx="5" fill="none" stroke="currentColor"/>
+  <text x="195" y="242" text-anchor="middle" font-size="12">w′₁ = UseHint(h, w′)</text>
+  <text x="195" y="258" text-anchor="middle" font-size="10">取高位（比较）</text>
+  <rect x="330" y="225" width="230" height="40" rx="5" fill="none" stroke="currentColor"/>
+  <text x="445" y="242" text-anchor="middle" font-size="12">‖z‖∞ &lt; γ₁ − β ?</text>
+  <text x="445" y="258" text-anchor="middle" font-size="10">范围检查</text>
+
+  <rect x="80" y="290" width="480" height="40" rx="5" fill="currentColor" fill-opacity="0.12" stroke="currentColor"/>
+  <text x="320" y="307" text-anchor="middle" font-size="12">c̃′ = H(μ ‖ w′₁)，检查 c̃′ = c̃</text>
+  <text x="320" y="323" text-anchor="middle" font-size="10">SHAKE256</text>
+
+  <line x1="80" y1="40" x2="80" y2="70" stroke="currentColor" marker-end="url(#v3)"/>
+  <line x1="110" y1="40" x2="220" y2="70" stroke="currentColor" marker-end="url(#v3)"/>
+  <line x1="370" y1="40" x2="372" y2="70" stroke="currentColor" marker-end="url(#v3)"/>
+  <line x1="295" y1="92" x2="305" y2="92" stroke="currentColor" marker-end="url(#v3)"/>
+  <line x1="545" y1="40" x2="545" y2="70" stroke="currentColor" marker-end="url(#v3)"/>
+  <line x1="80" y1="114" x2="150" y2="150" stroke="currentColor" marker-end="url(#v3)"/>
+  <line x1="545" y1="114" x2="490" y2="150" stroke="currentColor" marker-end="url(#v3)"/>
+  <line x1="195" y1="194" x2="195" y2="225" stroke="currentColor" marker-end="url(#v3)"/>
+  <line x1="195" y1="265" x2="195" y2="290" stroke="currentColor" marker-end="url(#v3)"/>
+  <line x1="445" y1="265" x2="445" y2="290" stroke="currentColor" marker-end="url(#v3)"/>
+  <line x1="320" y1="330" x2="320" y2="345" stroke="currentColor" marker-end="url(#v3)"/>
+  <text x="320" y="361" text-anchor="middle" font-size="12">接受 / 拒绝</text>
+</svg>
+<figcaption>ML-DSA 验签的数据流（数字为 ML-DSA-44 的 Keccak 置换次数）。灰底 = Keccak（SHAKE）步骤；灰底 + 虚线框 = 只依赖公钥，<strong>公钥公开时 verifier 可以在电路外自己算</strong>。z 和 h 来自签名 σ，t₁ 和 ρ 来自公钥 pk。</figcaption>
+</figure>
+
+<h3>1.1 每一步的黑盒</h3>
+<p>先认识几个符号：公钥 pk 解码成 <strong>ρ</strong>（32 字节随机种子）和 <strong>t₁</strong>（压缩后的公钥向量）；签名 σ 解码成 <strong>c̃</strong>（挑战哈希）、<strong>z</strong>（响应向量）、<strong>h</strong>（提示 hint）。</p>
+
+<div class="io"><dl>
+  <dt>步骤</dt><dd><strong>ExpandA</strong>（展开矩阵 A）</dd>
+  <dt>输入</dt><dd>公钥里的种子 ρ</dd>
+  <dt>输出</dt><dd>公开矩阵 Â（k×ℓ 个多项式，直接以 NTT 形式给出）</dd>
+  <dt>负责</dt><dd>公钥只存 32 字节种子，用的时候再展开成大矩阵</dd>
+  <dt>代价</dt><dd><strong>Keccak 大头</strong>：ML-DSA-44 是 96 次置换</dd>
+</dl></div>
+
+<div class="io"><dl>
+  <dt>步骤</dt><dd><strong>H</strong>（哈希，H = SHAKE256），验签里用了三次</dd>
+  <dt>tr</dt><dd>输入 pk → 输出 64 字节公钥摘要 tr</dd>
+  <dt>μ</dt><dd>输入 tr ‖ M′ → 输出 64 字节消息代表 μ（M′ = 加上上下文前缀的消息；‖ = 拼接）</dd>
+  <dt>c̃′</dt><dd>输入 μ ‖ w′₁ → 输出重算的挑战哈希 c̃′</dd>
+  <dt>代价</dt><dd>tr 约 10 次置换（随 pk 长度）；μ、c̃′ 各很少</dd>
+</dl></div>
+
+<div class="io"><dl>
+  <dt>步骤</dt><dd><strong>SampleInBall</strong>（「在球里采样」）</dd>
+  <dt>输入</dt><dd>签名里的挑战哈希 c̃</dd>
+  <dt>输出</dt><dd>挑战多项式 c：256 个系数里恰有 τ 个是 ±1，其余为 0</dd>
+  <dt>负责</dt><dd>把一个哈希值确定性地变成一个「稀疏」多项式</dd>
+  <dt>代价</dt><dd>SHAKE256 + 位置选择（洗牌）</dd>
+</dl></div>
+
+<div class="io"><dl>
+  <dt>步骤</dt><dd><strong>计算 w′</strong>（格算术）</dd>
+  <dt>输入</dt><dd>Â、z、c、t₁</dd>
+  <dt>输出</dt><dd>w′ = Â·z − c·t₁·2<sup>d</sup>（一组多项式，系数 mod q）</dd>
+  <dt>负责</dt><dd>重建签名者当时的「承诺」的近似值</dd>
+  <dt>代价</dt><dd>NTT（Number Theoretic Transform，数论变换）+ 逐点乘；如果证明系统的域就是 mod q，这些是<strong>原生运算，便宜</strong></dd>
+</dl></div>
+
+<div class="io"><dl>
+  <dt>步骤</dt><dd><strong>UseHint</strong>（使用提示）</dd>
+  <dt>输入</dt><dd>签名里的提示 h + 近似值 w′</dd>
+  <dt>输出</dt><dd>w′₁ = w′ 的「高位部分」，修正到和签名者算的完全一致</dd>
+  <dt>负责</dt><dd>w′ 有小误差，hint 告诉验签者哪些系数要进位 / 退位</dd>
+  <dt>代价</dt><dd>分解与比较（电路里不是原生运算，但不是 Keccak）</dd>
+</dl></div>
+
+<div class="io"><dl>
+  <dt>步骤</dt><dd><strong>范围检查 + 比较</strong>（norm check）</dd>
+  <dt>输入</dt><dd>z；c̃ 与 c̃′</dd>
+  <dt>输出</dt><dd>‖z‖<sub>∞</sub> &lt; γ₁ − β（z 的每个系数绝对值都够小）且 c̃ = c̃′ → 接受，否则拒绝</dd>
+  <dt>负责</dt><dd>「z 够小」防伪造；「哈希一致」说明签名对得上这个公钥和消息</dd>
+</dl></div>
+
+<details class="how">
+<summary>FIPS 204 Algorithm 8 逐行对照与参数</summary>
 <table>
 <tr><th>行</th><th>操作</th><th>类型</th></tr>
 <tr><td>1–2</td><td><code>(ρ, t₁) ← pkDecode(pk)</code>；<code>(c̃, z, h) ← sigDecode(σ)</code></td><td>位操作 / 范围检查</td></tr>
-<tr><td>5</td><td><code>Â ← ExpandA(ρ)</code> —— 每个 Â[r,s] 用 <strong>SHAKE128</strong> 拒绝采样（RejNTTPoly）</td><td><strong>Keccak（大头）</strong></td></tr>
+<tr><td>5</td><td><code>Â ← ExpandA(ρ)</code> —— 每个 Â[r,s] 用 <strong>SHAKE128</strong> 拒绝采样（RejNTTPoly：读随机字节，落在 [0, q) 的留下，其余丢弃）</td><td><strong>Keccak（大头）</strong></td></tr>
 <tr><td>6</td><td><code>tr ← H(pk, 64)</code>（H = SHAKE256）</td><td><strong>Keccak</strong></td></tr>
 <tr><td>7</td><td><code>μ ← H(tr ‖ M′, 64)</code></td><td>Keccak（1 次置换）</td></tr>
-<tr><td>8</td><td><code>c ← SampleInBall(c̃)</code> —— SHAKE256 + Fisher–Yates</td><td>Keccak + 位置选择</td></tr>
-<tr><td>9</td><td><code>w′ ← NTT⁻¹(Â∘NTT(z) − NTT(c)∘NTT(t₁·2<sup>d</sup>))</code></td><td><strong>mod q 算术</strong></td></tr>
+<tr><td>8</td><td><code>c ← SampleInBall(c̃)</code> —— SHAKE256 + Fisher–Yates 洗牌</td><td>Keccak + 位置选择</td></tr>
+<tr><td>9</td><td><code>w′ ← NTT⁻¹(Â∘NTT(z) − NTT(c)∘NTT(t₁·2<sup>d</sup>))</code>（∘ = 逐点乘）</td><td><strong>mod q 算术</strong></td></tr>
 <tr><td>10</td><td><code>w′₁ ← UseHint(h, w′)</code></td><td>分解 / 比较</td></tr>
-<tr><td>12</td><td><code>c̃′ ← H(μ ‖ w1Encode(w′₁))</code></td><td><strong>Keccak</strong></td></tr>
+<tr><td>12</td><td><code>c̃′ ← H(μ ‖ w1Encode(w′₁))</code>（w1Encode = 把 w′₁ 编码成字节）</td><td><strong>Keccak</strong></td></tr>
 <tr><td>13</td><td>返回 <code>‖z‖∞ &lt; γ₁ − β</code> 且 <code>c̃ = c̃′</code></td><td>范围检查</td></tr>
 </table>
-<p>参数：q = 8380417 = 2<sup>23</sup> − 2<sup>13</sup> + 1，n = 256，d = 13；(k, ℓ) = (4,4) / (6,5) / (8,7) 分别对应 ML-DSA-44 / 65 / 87；pk 1312 / 1952 / 2592 字节。<span class="cite"><a href="https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.204.pdf">FIPS 204 Tab. 1–2</a></span></p>
+<p>参数：q = 8380417 = 2<sup>23</sup> − 2<sup>13</sup> + 1，n = 256（每个多项式的系数个数），d = 13（t 被丢掉的低位 bit 数）；(k, ℓ) = (4,4) / (6,5) / (8,7) 分别对应 ML-DSA-44 / 65 / 87；pk 1312 / 1952 / 2592 字节。<span class="cite"><a href="https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.204.pdf">FIPS 204 Tab. 1–2</a></span></p>
+</details>
 
 <h2>2. 数 Keccak 置换：公钥公开 vs 公钥隐藏</h2>
-<p>SHAKE128 每次置换吸收/挤出 168 字节，SHAKE256 是 136 字节。一次 Keccak-f[1600] 是 <strong>38,400 个 AND 门</strong>（24 轮 × 每轮 χ 的 1,600 个 AND）。<span class="cite"><a href="https://nigelsmart.github.io/MPC-Circuits/">Bristol circuits</a></span></p>
+<div class="io"><dl>
+  <dt>组件</dt><dd><strong>Keccak-f[1600]</strong>（SHA-3 = Secure Hash Algorithm 3 家族的核心置换）</dd>
+  <dt>输入</dt><dd>1600 bit 状态</dd>
+  <dt>输出</dt><dd>打乱后的 1600 bit 状态</dd>
+  <dt>调用次数</dt><dd>SHAKE 每吸收 / 挤出一块数据调用一次：SHAKE128 一块 168 字节，SHAKE256 一块 136 字节</dd>
+  <dt>电路代价</dt><dd>一次 = <strong>38,400 个 AND 门</strong>（布尔「与」门，24 轮 × 每轮 χ 步骤的 1,600 个 AND）</dd>
+</dl></div>
+<p class="cite" style="vertical-align:baseline"><a href="https://nigelsmart.github.io/MPC-Circuits/">Bristol circuits</a>（布里斯托大学 Nigel Smart 等维护的一套 MPC 常用布尔电路，含 AES、SHA-256、Keccak 等）</p>
+
+<figure>
+<svg viewBox="0 0 640 150" width="100%" role="img" aria-label="Keccak permutations: public key about 10 versus hidden key about 116">
+  <text x="5" y="38" font-size="12">公钥公开</text>
+  <rect x="90" y="22" width="40" height="24" fill="currentColor" fill-opacity="0.35" stroke="currentColor"/>
+  <text x="138" y="39" font-size="12">≈ 10 次 ≈ 384K AND</text>
+  <text x="5" y="88" font-size="12">公钥隐藏</text>
+  <rect x="90" y="72" width="464" height="24" fill="currentColor" fill-opacity="0.35" stroke="currentColor"/>
+  <rect x="90" y="72" width="40" height="24" fill="none" stroke="currentColor" stroke-width="2"/>
+  <text x="554" y="118" text-anchor="end" font-size="12">≈ 116 次 ≈ 4.45M AND</text>
+  <text x="320" y="142" text-anchor="middle" font-size="11">多出来的 ≈ 106 次 = ExpandA（96）+ tr（10）</text>
+</svg>
+<figcaption>ML-DSA-44 验签里要进电路的 Keccak 置换次数（条长按比例）。</figcaption>
+</figure>
+
 <table>
 <tr><th></th><th>ML-DSA-44</th><th>ML-DSA-65</th><th>ML-DSA-87</th></tr>
 <tr><td>ExpandA（每个多项式按 FIPS 最低上限 894 B → 6 次置换）</td><td>16 × 6 = <strong>96</strong></td><td>180</td><td>336</td></tr>
@@ -41,31 +215,42 @@
 <tr><td><strong>公钥公开</strong>（ExpandA、tr 交给 verifier 算）</td><td><strong>≈ 10</strong></td><td>≈ 10</td><td>≈ 12</td></tr>
 <tr><td><strong>公钥隐藏</strong>（全部进电路）</td><td><strong>≈ 116</strong></td><td>≈ 205</td><td>≈ 368</td></tr>
 </table>
-<p>ML-DSA-44 的 96 + 10 来自已发表的 GordieHowe：<em>"ExpandA makes 16 SHAKE128 calls of 6 blocks each, 96 Keccak permutations in all. A proof of possession under a public key leaves ExpandA and the hash tr of the public key to the verifier and proves 10 permutations for the remaining hashing."</em><span class="cite"><a href="https://eprint.iacr.org/2026/2615">ePrint 2026/2615 §7.5.2</a></span> 65 / 87 两列是按 FIPS 204 推算的，<strong>别当成已发表数字说</strong>。</p>
+<p>ML-DSA-44 的 96 + 10 来自已发表的 GordieHowe（一篇 2026 年的第三方论文，名字不是缩写）：<em>"ExpandA makes 16 SHAKE128 calls of 6 blocks each, 96 Keccak permutations in all. A proof of possession under a public key leaves ExpandA and the hash tr of the public key to the verifier and proves 10 permutations for the remaining hashing."</em><span class="cite"><a href="https://eprint.iacr.org/2026/2615">ePrint 2026/2615 §7.5.2</a></span> 65 / 87 两列是按 FIPS 204 推算的，<strong>别当成已发表数字说</strong>。</p>
 <p>换算成门：公钥公开 ≈ 10 × 38,400 = 384K AND；公钥隐藏 ≈ 116 × 38,400 ≈ <strong>4.45M AND</strong>。</p>
 
 <h3>什么时候公钥必须隐藏？</h3>
 <ul>
-  <li><strong>device binding</strong>：和 ECDSA 版一样，device 公钥公开就能追踪用户。Nowhere Man（S&amp;P 2027）就是做这个的。</li>
-  <li><strong>issuer hiding</strong>：不想暴露是哪个发证方签的（比如只证明「某个欧盟成员国」）。</li>
+  <li><strong>device binding</strong>（设备绑定）：和 ECDSA 版一样，device 公钥公开就能追踪用户。Nowhere Man（一篇 IEEE S&amp;P 2027 论文；S&amp;P = Symposium on Security and Privacy）就是做这个的。</li>
+  <li><strong>issuer hiding</strong>（隐藏发证方）：不想暴露是哪个发证方签的（比如只证明「某个欧盟成员国」）。</li>
 </ul>
-<p>Longfellow 现有的测试电路里 <code>Â</code> 是<strong>公开输入</strong>，ExpandA 和 tr 不在电路里；<code>μ</code> 是私有输入，也没检查它确实由消息算出。<span class="cite"><a href="https://github.com/longfellow-zk/longfellow-zk/tree/main/lib/circuits/tests/pq/ml_dsa">repo tests/pq/ml_dsa</a>；GordieHowe 也独立指出这点</span></p>
+<p>Longfellow 现有的测试电路里 <code>Â</code> 是<strong>公开输入</strong>（statement），ExpandA 和 tr 不在电路里；<code>μ</code> 是私有输入（witness），也没检查它确实由消息算出。<span class="cite"><a href="https://github.com/longfellow-zk/longfellow-zk/tree/main/lib/circuits/tests/pq/ml_dsa">repo tests/pq/ml_dsa</a>；GordieHowe 也独立指出这点</span></p>
 
 <h2>3. 格算术为什么「便宜」</h2>
-<p>第 9 行对 ML-DSA-44 是 9 次正向 + 4 次逆向 NTT（每次 256 点），外加 4096 次逐点乘。只要证明系统的域<strong>就是 mod q</strong>，这些都是原生运算。Longfellow 的 ML-DSA 电路正是这么做的：用 <code>Fp24_6</code>，即 F<sub>q</sub> 的六次扩域（为了 sumcheck 可靠性需要大域）。<span class="cite"><a href="https://github.com/longfellow-zk/longfellow-zk/tree/main/lib/circuits/tests/pq/ml_dsa">repo</a></span></p>
-<p>但这带来一个张力：Keccak 是比特运算，天然属于 GF(2<sup>128</sup>)；格算术属于 F<sub>q</sub>。<strong>要么把 Keccak 硬塞进 F<sub>q<sup>6</sup></sub></strong>（Google 测试电路的做法，贵），<strong>要么分两个域再用跨域 MAC 证明一致</strong>（GordieHowe 测到这个 MAC 在 Longfellow 基线里占 ML-DSA-44 prover 时间的 51%）。<span class="cite"><a href="https://eprint.iacr.org/2026/2615">ePrint 2026/2615</a></span></p>
+<div class="io"><dl>
+  <dt>结论</dt><dd>w′ 那一步只要证明系统的域<strong>就是 mod q</strong>，全是原生加法和乘法</dd>
+  <dt>规模</dt><dd>ML-DSA-44：9 次正向 + 4 次逆向 NTT（每次 256 点），外加 4096 次逐点乘</dd>
+  <dt>Longfellow 的做法</dt><dd>用 <code>Fp24_6</code>（代码里的类型名，即 F<sub>q</sub> 的六次扩域 F<sub>q<sup>6</sup></sub>；q 只有约 23 bit，sumcheck 可靠性需要大域）</dd>
+</dl></div>
+<p class="cite" style="vertical-align:baseline"><a href="https://github.com/longfellow-zk/longfellow-zk/tree/main/lib/circuits/tests/pq/ml_dsa">repo</a></p>
+<p>但这带来一个张力：Keccak 是比特运算，天然属于 GF(2<sup>128</sup>)（128 bit 二元域，XOR 免费）；格算术属于 F<sub>q</sub>。两种选择：</p>
+<table>
+<tr><th>做法</th><th>谁这么做</th><th>代价</th></tr>
+<tr><td>把 Keccak 硬塞进 F<sub>q<sup>6</sup></sub>，一个域到底</td><td>Google 测试电路</td><td>Keccak 在素数域里贵</td></tr>
+<tr><td>Keccak 放 GF(2<sup>128</sup>)，格算术放 F<sub>q</sub>，再用跨域 MAC（Message Authentication Code）证明两边是同一份 witness</td><td>GordieHowe 的测量</td><td>这个 MAC 在 Longfellow 基线里占 ML-DSA-44 prover 时间的 51%</td></tr>
+</table>
+<p class="cite" style="vertical-align:baseline"><a href="https://eprint.iacr.org/2026/2615">ePrint 2026/2615</a></p>
 
 <h2>4. 你自己的证据：SHIELD 的成本结构</h2>
-<p>SHIELD 是<strong>签名</strong>（不是验签）放进 MPC，但同一个规律：在线计算（Mcycles，ML-DSA-44 / 65 / 87）<span class="cite">own-shield.md，取自论文 experiment.tex 成本表</span></p>
+<p>SHIELD（你的门限 ML-DSA 系统）是<strong>签名</strong>（不是验签）放进 MPC（Multi-Party Computation，多方安全计算），但同一个规律：在线计算（Mcycles = 百万 CPU 周期，ML-DSA-44 / 65 / 87）<span class="cite">own-shield.md，取自论文 experiment.tex 成本表</span></p>
 <table>
 <tr><th>步骤</th><th>44</th><th>65</th><th>87</th></tr>
 <tr><td>Keccak 两步</td><td><strong>341</strong></td><td>438</td><td>597</td></tr>
 <tr><td>Challenge（SampleInBall 等）</td><td>255</td><td>210</td><td>270</td></tr>
-<tr><td>CheckNorm + MakeHint</td><td>110</td><td>162</td><td>216</td></tr>
+<tr><td>CheckNorm + MakeHint（签名侧的范围检查 + 生成 hint）</td><td>110</td><td>162</td><td>216</td></tr>
 <tr><td><strong>全部多项式乘法</strong></td><td><strong>0.70</strong></td><td>1.21</td><td>1.37</td></tr>
 </table>
-<p>原因和 ZK 一样：NTT 在 share 上是线性的、A 是公开的，几乎免费；Keccak-f、分解、范围检查是布尔电路，贵。你还亲手把 SampleInBall 的布尔电路从 890K 门压到 355K 门（Verilog → Yosys → Bristol）。</p>
-<div class="warn">口径：SHIELD 测的是 <strong>MPC 里的签名</strong>，不是 ZK 里的验签。可以说 "the same cost structure from the MPC side"（你冷邮件就是这么写的），不要说 "I measured ML-DSA verification in ZK"。签名比验签多了拒绝循环、ExpandMask 等；验签没有拒绝循环。</div>
+<p>原因和 ZK 一样：NTT 在 share 上是线性的、A 是公开的，几乎免费；Keccak-f、分解、范围检查是布尔电路，贵。你还亲手把 SampleInBall 的布尔电路从 890K 门压到 355K 门（工具链：Verilog 硬件描述语言 → Yosys 开源综合工具 → Bristol 电路格式）。</p>
+<div class="warn">口径：SHIELD 测的是 <strong>MPC 里的签名</strong>，不是 ZK 里的验签。可以说 "the same cost structure from the MPC side"（你冷邮件就是这么写的），不要说 "I measured ML-DSA verification in ZK"。签名比验签多了拒绝循环、ExpandMask（签名时生成随机掩码向量的步骤）等；验签没有拒绝循环。</div>
 
 <div class="say">If the public key is public, ML-DSA-44 verification is only about ten Keccak permutations plus native mod-q NTTs — that's the 858 ms case on your slides. The interesting case is device binding or issuer hiding, where ExpandA and H(pk) move into the circuit: that's about 96 more permutations for ML-DSA-44, roughly 4.5 million AND gates of Keccak, and the lattice part has to stay in F_q. So the question becomes where to put Keccak and how cheaply you can link it to the F_q side. In SHIELD I saw the same split from the MPC side: Keccak was 341 Mcycles online and all polynomial multiplication was 0.7.</div>
 
@@ -101,19 +286,19 @@
 </div>
 <div class="quiz" data-answer="0">
   <div class="q">Q5. 为什么 device binding 场景下证明会贵十倍以上？</div>
-  <button class="opt">隐藏公钥后 ExpandA 和 tr 都得进电路</button>
-  <button class="opt">隐藏公钥后 NTT 必须换成普通乘法计算</button>
-  <button class="opt">隐藏公钥后签名长度会变成原来的十倍</button>
+  <button class="opt">公钥变成 witness，ExpandA 和 tr 都得进电路</button>
+  <button class="opt">公钥变成 witness，NTT 必须换成普通乘法</button>
+  <button class="opt">公钥变成 witness，签名长度会变成十倍</button>
   <div class="why">公钥公开 ≈10 次置换；隐藏后 ≈116（ML-DSA-44）。</div>
 </div>
 <div class="recall">
-  <div class="q">回忆练习：不看表，写出 Algorithm 8 中所有用到 SHAKE 的行，并标出哪些在「公钥公开」时可以移出电路。</div>
+  <div class="q">回忆练习：不看页面，画出验签的数据流图（pk / M / σ → 各步骤 → 接受 / 拒绝），圈出所有用到 SHAKE 的步骤，并标出哪些在「公钥公开」时可以移出电路。</div>
   <textarea></textarea>
-  <details><summary>对照</summary><p>ExpandA（行 5，SHAKE128）、tr（行 6）、μ（行 7）、SampleInBall（行 8）、c̃′（行 12）。公钥公开时 ExpandA 和 tr 可由 verifier 算，μ / SampleInBall / c̃′ 仍在电路里（约 10 次置换）。</p></details>
+  <details><summary>对照</summary><p>ExpandA（SHAKE128）、tr、μ、SampleInBall、c̃′（都是 SHAKE256）。公钥公开时 ExpandA 和 tr 可由 verifier 算，μ / SampleInBall / c̃′ 仍在电路里（约 10 次置换）。</p></details>
 </div>
 
 <div class="source"><strong>首选原始资料</strong>
-<a href="https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.204.pdf">FIPS 204</a> 的 Algorithm 8（验签）、Algorithm 29（SampleInBall）、Algorithm 32（ExpandA）、Table 1 —— 20 分钟。然后打开 <a href="https://github.com/longfellow-zk/longfellow-zk/tree/main/lib/circuits/tests/pq/ml_dsa">longfellow-zk 的 tests/pq/ml_dsa</a>，读 <code>ml_dsa_circuit.h</code> 的头注释（10 分钟）—— 面谈时能说「I read your ml_dsa_circuit.h」非常加分。</div>
+<a href="https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.204.pdf">FIPS 204</a> 的 Algorithm 8（验签）、Algorithm 29（SampleInBall）、Algorithm 32（ExpandA）、Table 1 —— 20 分钟，只看每个算法的输入输出那几行即可。然后打开 <a href="https://github.com/longfellow-zk/longfellow-zk/tree/main/lib/circuits/tests/pq/ml_dsa">longfellow-zk 的 tests/pq/ml_dsa</a>，读 <code>ml_dsa_circuit.h</code> 的头注释（10 分钟）—— 面谈时能说「I read your ml_dsa_circuit.h」非常加分。</div>
 <p class="ask">有任何一步对不上，问我。特别推荐问：「UseHint 在电路里怎么做」—— 他们的头注释说用了 "Interval Shifting"。</p>
 
 <nav class="lessons"><a href="0002-ligero-sumcheck-through-mpc.html">← 上一课</a><a href="0004-landscape-and-positioning.html">下一课：战场现状与你的位置 →</a></nav>

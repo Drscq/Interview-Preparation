@@ -78,3 +78,11 @@ details summary { cursor: pointer; font-family: var(--sans); font-size: .9rem; }
   nav.lessons, .ask { display: none; }
   details { border: none; } details > * { display: block !important; }
 }
+
+/* black-box component card: what goes in, what comes out, before any detail */
+.io { font-family: var(--sans); font-size: .9rem; border: 1px solid var(--rule); border-left: 3px solid var(--accent); border-radius: 4px; padding: .7rem 1rem; margin: 1rem 0; }
+.io::before { content: "黑盒视角 · 输入 → 输出"; display: block; font-size: .72rem; letter-spacing: .06em; color: var(--accent); margin-bottom: .3rem; }
+.io dl { display: grid; grid-template-columns: 6.5em 1fr; gap: .25rem .6rem; margin: 0; }
+.io dt { font-weight: 600; }
+.io dd { margin: 0; }
+details.how > summary::before { content: "细节（可跳过）· "; color: var(--muted); }

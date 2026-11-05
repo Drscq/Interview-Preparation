@@ -10,65 +10,178 @@
 <body>
 <main>
 <header class="lesson">
-  <div class="kicker">Lesson 0005 · 约 30 分钟 + 两遍口头演练 · <a href="../index.html">返回目录</a></div>
+  <div class="kicker">Lesson 0005 · 约 40 分钟 + 两遍口头演练 · <a href="../index.html">返回目录</a></div>
   <h1>面谈剧本与项目提案</h1>
   <p class="goal"><strong>这一课的收获：</strong>60 分钟面谈的节奏、「签发侧 → 持有人侧」的下一步故事线（B / F / A）、要问他们的问题，以及最后要拿到的那个明确的下一步（池里点名要人）。</p>
 </header>
 
+<p><strong>怎么读这一课：</strong>这是剧本课，大部分是要说出口的话。讲到技术方案（项目 B / F / A）时，先给「黑盒卡片」（输入 / 输出 / 负责 / 结论），细节折叠在「细节（可跳过）」里。</p>
+
+<details open>
+<summary><strong>本课缩写速查</strong>（先扫一眼；正文里每个缩写第一次出现时也会写全称和意思）</summary>
+<table>
+<tr><th>缩写 / 名字</th><th>全称</th><th>一句话意思</th></tr>
+<tr><td>ZK</td><td>Zero-Knowledge</td><td>零知识（证明）。</td></tr>
+<tr><td>PhD SWE intern</td><td>PhD Software Engineer intern</td><td>Google 面向博士生的软件工程实习岗位；你已经在它的候选池（pool）里。</td></tr>
+<tr><td>VT</td><td>Virginia Tech</td><td>弗吉尼亚理工，你的学校。</td></tr>
+<tr><td>ML-DSA</td><td>Module-Lattice-Based Digital Signature Algorithm</td><td>NIST 后量子签名标准 FIPS 204。</td></tr>
+<tr><td>NIST / FIPS</td><td>National Institute of Standards and Technology / Federal Information Processing Standard</td><td>美国国家标准与技术研究院 / 它发布的联邦信息处理标准。</td></tr>
+<tr><td>Falcon / FN-DSA</td><td>Fast-Fourier Lattice-based Compact Signatures over NTRU / FFT over NTRU-Lattice-Based Digital Signature Algorithm</td><td>另一个 NIST 选定的格基签名；标准化后叫 FN-DSA，即 FIPS 206，<strong>还是草案</strong>。</td></tr>
+<tr><td>SLH-DSA</td><td>Stateless Hash-Based Digital Signature Algorithm</td><td>NIST 的基于哈希的后量子签名标准 FIPS 205。</td></tr>
+<tr><td>MPC</td><td>Multi-Party Computation</td><td>多方安全计算。</td></tr>
+<tr><td>SHIELD</td><td>（你的项目名）</td><td>门限 ML-DSA：一个 CA 下 n 台签名服务器，n-of-n，在恶意安全 MPC 里执行未修改的 FIPS 204 签名，输出标准签名（IEEE S&amp;P 2026，共同一作）。</td></tr>
+<tr><td>FLOCK</td><td>（你的项目名）</td><td>与 Falcon 兼容的门限签名（一作，USENIX Security 2027 第二轮）。</td></tr>
+<tr><td>HERO</td><td>（你的项目名）</td><td>带一个不可信 helper 的 ORAM（一作，NDSS 2027 在审）。</td></tr>
+<tr><td>S&amp;P</td><td>IEEE Symposium on Security and Privacy</td><td>安全四大顶会之一。</td></tr>
+<tr><td>USENIX Security</td><td>USENIX Security Symposium</td><td>安全四大顶会之一，由 USENIX 协会（原 Unix 用户协会）主办。</td></tr>
+<tr><td>CCS</td><td>ACM Conference on Computer and Communications Security</td><td>安全四大顶会之一（ACM = Association for Computing Machinery）。</td></tr>
+<tr><td>NDSS</td><td>Network and Distributed System Security Symposium</td><td>安全四大顶会之一。</td></tr>
+<tr><td>ORAM</td><td>Oblivious RAM（Oblivious Random Access Machine）</td><td>不经意存储访问：访问数据时不泄露访问了哪个位置。</td></tr>
+<tr><td>CA</td><td>Certificate Authority</td><td>证书颁发机构，即签发方。</td></tr>
+<tr><td>n-of-n / t-of-n</td><td>—</td><td>门限签名的门限：n 台全部参与才能签 / 任意 t 台即可签。SHIELD 是 n-of-n。</td></tr>
+<tr><td>DKG</td><td>Distributed Key Generation</td><td>分布式密钥生成：没有任何一方见过完整私钥。SHIELD <strong>没有</strong> DKG（用一次性可信 setup）。</td></tr>
+<tr><td>KAT</td><td>Known Answer Test</td><td>已知答案测试：用 NIST 给的测试向量检查输出逐比特一致。</td></tr>
+<tr><td>MSO</td><td>Mobile Security Object</td><td>手机证件 mdoc 里被发证方签名的数据块（属性摘要 + device 公钥 + 有效期）。</td></tr>
+<tr><td>SGX</td><td>Intel Software Guard Extensions</td><td>Intel 的可信执行环境。HERO 投稿版<strong>没有</strong> SGX，别提。</td></tr>
+<tr><td>Lean</td><td>Lean 4 定理证明器</td><td>用来机器检查证明的工具；abhi 想用它做形式化验证。</td></tr>
+<tr><td>OPT / CPT</td><td>Optional Practical Training / Curricular Practical Training</td><td>F-1 学生的两种校外工作授权；你走 pre-completion OPT（毕业前的 OPT），CPT 通道已关。</td></tr>
+<tr><td>I-20 / I-765</td><td>Certificate of Eligibility for Nonimmigrant Student Status / Application for Employment Authorization</td><td>学校出的 F-1 身份文件 / 向移民局申请工作许可的表格。</td></tr>
+<tr><td>H-1B</td><td>H-1B 专业工作签证</td><td>需要雇主担保的工作签证；暑期实习<strong>不需要</strong>。</td></tr>
+</table>
+</details>
+
 <h2>1. 这是什么性质的会</h2>
-<p>abhi 的原话是 <em>"let's meet and discuss the internship possibility"</em>，还主动拉上了 Matteo。这是 <strong>host 在判断要不要点名要你、以及做什么项目</strong>，不是 LeetCode 技术面。他们想知道三件事：① 你懂不懂他们在做的东西；② 你能不能独立把一个 12 周项目推到有结果；③ 合不合拍。</p>
+<p>abhi 的原话是 <em>"let's meet and discuss the internship possibility"</em>，还主动拉上了 Matteo。这是 <strong>host（接收实习生的导师）在判断要不要点名要你、以及做什么项目</strong>，不是 LeetCode（刷算法题网站）式的技术面。他们想知道三件事：① 你懂不懂他们在做的东西；② 你能不能独立把一个 12 周项目推到有结果；③ 合不合拍。</p>
+
+<figure>
+<svg viewBox="0 0 640 150" width="100%" role="img" aria-label="60 分钟面谈时间轴：寒暄、他们问你的工作、技术讨论、项目可能性、你的问题与下一步">
+  <rect x="10" y="40" width="50" height="40" fill="none" stroke="currentColor"/>
+  <rect x="60" y="40" width="150" height="40" fill="none" stroke="currentColor"/>
+  <rect x="210" y="40" width="200" height="40" fill="none" stroke="currentColor"/>
+  <rect x="410" y="40" width="120" height="40" fill="currentColor" opacity=".15" stroke="currentColor"/>
+  <rect x="530" y="40" width="100" height="40" fill="currentColor" opacity=".3" stroke="currentColor"/>
+  <text x="35" y="64" text-anchor="middle" font-size="11">介绍</text>
+  <text x="135" y="64" text-anchor="middle" font-size="12">你的工作</text>
+  <text x="310" y="64" text-anchor="middle" font-size="12">技术讨论</text>
+  <text x="470" y="64" text-anchor="middle" font-size="12">项目 B → F</text>
+  <text x="580" y="64" text-anchor="middle" font-size="12">问题 + ask</text>
+  <text x="10" y="98" text-anchor="middle" font-size="10">0′</text>
+  <text x="60" y="98" text-anchor="middle" font-size="10">5′</text>
+  <text x="210" y="98" text-anchor="middle" font-size="10">20′</text>
+  <text x="410" y="98" text-anchor="middle" font-size="10">40′</text>
+  <text x="530" y="98" text-anchor="middle" font-size="10">52′</text>
+  <text x="630" y="98" text-anchor="middle" font-size="10">60′</text>
+  <text x="135" y="30" text-anchor="middle" font-size="11">SHIELD / FLOCK</text>
+  <text x="310" y="30" text-anchor="middle" font-size="11">共享 slide</text>
+  <text x="470" y="30" text-anchor="middle" font-size="11">slide 6</text>
+  <text x="580" y="30" text-anchor="middle" font-size="11">slide 8</text>
+  <text x="320" y="130" text-anchor="middle" font-size="11">颜色越深 = 越要守住时间；最后 8 分钟一定留给 ask</text>
+</svg>
+<figcaption>60 分钟的节奏（按比例画）。详细目标见下表。</figcaption>
+</figure>
+
 <table>
 <tr><th>时间</th><th>环节</th><th>你的目标</th></tr>
 <tr><td>0–5′</td><td>寒暄 + 自我介绍</td><td>60 秒版本（下面），把话题引向 ML-DSA</td></tr>
-<tr><td>5–20′</td><td>他们讲 / 问你的工作</td><td>SHIELD 讲到成本结构；threshold-Falcon 修 bug 讲到「我会读别人的密码学代码」</td></tr>
+<tr><td>5–20′</td><td>他们讲 / 问你的工作</td><td>SHIELD、FLOCK 各讲「它是什么 + 主要技术」（slide 2–3 的结构图）</td></tr>
 <tr><td>20–40′</td><td>技术讨论</td><td>全程共享 slide：我对 Longfellow 的理解 → 他们的 ML-DSA 电路（第 0003、0006 课）</td></tr>
-<tr><td>40–52′</td><td>项目可能性</td><td>第 7、8 页：签发侧 → 持有人侧，先 B 后 F</td></tr>
+<tr><td>40–52′</td><td>项目可能性</td><td>第 6 页：发证方换成后量子签名，先 B 后 F</td></tr>
 <tr><td>52–60′</td><td>你的问题 + 下一步</td><td>拿到明确的下一步（见第 6 节）</td></tr>
 </table>
 
 <h2>2. 60 秒自我介绍</h2>
+<p>里面提到的名字：<strong>SHIELD</strong>（你的门限 ML-DSA，IEEE S&amp;P 2026 = IEEE Symposium on Security and Privacy）、<strong>FIPS 204 ML-DSA</strong>（FIPS = Federal Information Processing Standard；ML-DSA = Module-Lattice-Based Digital Signature Algorithm，NIST 后量子签名标准）、<strong>MPC</strong>（Multi-Party Computation 多方安全计算）、<strong>FLOCK</strong>（你的与 Falcon 兼容的门限签名）、<strong>USENIX Security</strong>（USENIX Security Symposium，安全顶会）、<strong>CCS</strong>（ACM Conference on Computer and Communications Security）、<strong>ORAM</strong>（Oblivious RAM，不经意存储访问，即 HERO 的方向）。</p>
 <div class="say">I'm a fourth-year PhD student at Virginia Tech with Thang Hoang. My main line is threshold post-quantum signatures: SHIELD, at S&P 2026, runs unmodified FIPS 204 ML-DSA signing inside maliciously secure MPC, so the output verifies under a standard verifier; FLOCK does the same for Falcon and is in the second round at USENIX Security. Along the way I reproduced the CCS threshold-Falcon artifact and found two silent bugs in its sampler and I/O layer — the fixes are merged upstream and signing got about nine times faster. I also work on ORAM. What pulled me to Longfellow is that it proves statements about unmodified standard signatures — the same philosophy as SHIELD — and the post-quantum version of that statement is exactly ML-DSA.</div>
 
-<h2>3. 下一步：从签发侧到持有人侧（2026-10-28 定稿）</h2>
-<div class="warn"><strong>故事线：</strong>签发侧我已经做完了（SHIELD = 门限 ML-DSA，FLOCK = 与 Falcon 兼容的门限签名，输出都是标准签名）→ 下一步是持有人侧：用 Longfellow 证明「我持有一张后量子签名的凭证」。slide 第 7、8 页上 B 和 F 并列，<strong>口头先讲 B</strong>，看他们的反应再展开 F；A 是备用。</div>
+<h2>3. 下一步：把发证方的 ECDSA 换成后量子签名（2026-10-29 改）</h2>
+<div class="warn"><strong>故事线：</strong>Longfellow 今天证明的是「我持有一张 ECDSA 签名的证件」。要后量子，<strong>只需把发证方的签名换成 ML-DSA 或 Falcon</strong>，持有人侧的电路相应地验证新签名。发证方怎么签（单机还是门限）与他们无关，所以<strong>下一步的方案里不出现 SHIELD / FLOCK</strong>。slide 上 B 和 F 并列，口头先讲 B，看反应再展开 F；A 备用。</div>
+<div class="ask">你和这件事的连接只在被问「为什么是你」时口头说一句：I've implemented ML-DSA and Falcon signing internals in my own work, so I know where their verification costs come from. 不要把 SHIELD / FLOCK 写进方案。</div>
 
-<h3>B. ML-DSA 端到端：SHIELD 签发 + Longfellow 出示（先讲）</h3>
-<p><strong>要点：</strong>SHIELD 的输出和 FIPS 204 签名<strong>逐比特相同</strong>，所以 holder 侧他们现成的 ML-DSA 电路一行都不用改。<br>
-<strong>做什么：</strong>定一个最小的 ML-DSA 版 MSO 格式，用 SHIELD 签发（过 KAT），接到现有 ML-DSA 测试电路上证明持有，然后量化整条管线（签发侧和 holder 侧）的成本。<br>
-<strong>风险（主动说）：</strong>偏系统集成；SHIELD 的离线预处理很重，适合低频签发。</p>
+<figure>
+<svg viewBox="0 0 640 220" width="100%" role="img" aria-label="把发证方的 ECDSA 换成 ML-DSA 或 Falcon，持有人用 Longfellow 证明持有">
+  <defs><marker id="m5a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+  <rect x="10" y="20" width="170" height="90" rx="6" fill="none" stroke="currentColor"/>
+  <text x="95" y="45" text-anchor="middle" font-size="12">发证方签 MSO</text>
+  <text x="95" y="68" text-anchor="middle" font-size="11" style="fill:var(--bad)" text-decoration="line-through">ECDSA P-256</text>
+  <text x="95" y="90" text-anchor="middle" font-size="11" style="fill:var(--ok)">ML-DSA-44 / Falcon-512</text>
+  <rect x="235" y="20" width="200" height="90" rx="6" fill="none" stroke="currentColor" style="stroke:var(--ok)"/>
+  <text x="335" y="45" text-anchor="middle" font-size="12">持有人（Longfellow）</text>
+  <text x="335" y="68" text-anchor="middle" font-size="11">证明「我持有一个合法的</text>
+  <text x="335" y="86" text-anchor="middle" font-size="11">后量子签名」</text>
+  <rect x="490" y="35" width="140" height="60" rx="6" fill="none" stroke="currentColor"/>
+  <text x="560" y="60" text-anchor="middle" font-size="12">网站 verifier</text>
+  <text x="560" y="80" text-anchor="middle" font-size="11">接受 / 拒绝</text>
+  <line x1="180" y1="65" x2="235" y2="65" stroke="currentColor" marker-end="url(#m5a)"/>
+  <line x1="435" y1="65" x2="490" y2="65" stroke="currentColor" marker-end="url(#m5a)"/>
+  <rect x="235" y="135" width="200" height="34" rx="6" fill="currentColor" opacity=".12" stroke="currentColor"/>
+  <text x="335" y="157" text-anchor="middle" font-size="11">B：ML-DSA 放进完整 mdoc 陈述</text>
+  <rect x="235" y="175" width="200" height="34" rx="6" fill="none" stroke="currentColor"/>
+  <text x="335" y="197" text-anchor="middle" font-size="11">F：新写 Falcon 验签电路</text>
+  <text x="560" y="157" text-anchor="middle" font-size="10">A（备用）：藏公钥 ML-DSA</text>
+</svg>
+<figcaption>证明系统本身已经只依赖哈希；变的只是电路里的那一步验签。</figcaption>
+</figure>
+
+<h3>B. ML-DSA 放进完整的 mdoc 陈述（先讲）</h3>
+<div class="io"><dl>
+  <dt>输入</dt><dd>statement：发证方 ML-DSA 公钥、要披露的属性、会话信息；witness：ML-DSA 签名的 MSO、device 公钥与签名</dd>
+  <dt>输出</dt><dd>一个完整的后量子 mdoc 出示证明，以及端到端的成本数字</dd>
+  <dt>负责</dt><dd>把他们现成的 ML-DSA 测试电路（858 ms，公钥公开）和 MSO 哈希、属性检查、device binding 拼成一整张电路</dd>
+  <dt>结论</dt><dd>验签那一块已经存在，难点是整合与测量：完整陈述里哪一部分最贵</dd>
+</dl></div>
+<details class="how">
+<summary>B 具体做什么、风险在哪</summary>
+<p><strong>做什么：</strong>定一个最小的 ML-DSA 版 MSO（Mobile Security Object，证件里被签名的数据块）格式，用标准 ML-DSA 签名生成测试凭证，把现有 ML-DSA 电路和 mdoc 电路的其余部分接起来，测端到端的 prover / verifier 时间。<br>
+<strong>风险（主动说）：</strong>偏系统集成；研究新意来自测量结果，比如哈希是否仍是大头。</p>
+</details>
 
 <h3>F. Longfellow 里的 Falcon 电路（研究味更重）</h3>
-<p><strong>要点：</strong>Falcon 公钥只是一个多项式，藏公钥几乎不多花 Keccak：约 9 次，ML-DSA 约 116 次。详见 <a href="0007-falcon-holder-side.html">第 0007 课</a>。<br>
-<strong>边界：</strong>这只数了 Keccak；Decompress 和平方范数有自己的代价；FIPS 206 还是草案。</p>
+<div class="io"><dl>
+  <dt>输入</dt><dd>statement：被签的消息（Falcon 公钥可以藏进 witness）；witness：发证方的 Falcon 签名 + 公钥</dd>
+  <dt>输出</dt><dd>一个 Longfellow 证明「我持有一个合法 Falcon 签名」</dd>
+  <dt>负责</dt><dd>Longfellow 现在没有 Falcon 电路，要新写一个</dd>
+  <dt>结论</dt><dd>Falcon 公钥只是一个多项式，藏公钥几乎不多花 Keccak：约 9 次，ML-DSA 约 116 次。详见 <a href="0007-falcon-holder-side.html">第 0007 课</a></dd>
+</dl></div>
+<p><strong>边界：</strong>这只数了 Keccak；Decompress（签名的变长解码）和平方范数有自己的代价；FIPS 206（FN-DSA，Falcon 的标准化版本）还是草案。</p>
 
 <h3>A. 藏公钥的 ML-DSA（备用）</h3>
-<p>他们说「PQ 只做 ML-DSA」时用。把 ExpandA 和 <code>tr</code> 放进电路（约多 96 + 10 次置换），对比 858 ms 基线。第一周：跑通 <code>BM_MLDSA44ZK_Prove</code>，按子电路做 profile。</p>
-<p><strong>C（规范一致性 / 形式化）</strong>不上 slide。只在他们主动提形式化时说：「我的强项是在密码学 artifact 里找静默 bug，可以在形式化之前把实现层扫一遍，同时学 Lean。」</p>
+<div class="io"><dl>
+  <dt>输入</dt><dd>statement：消息；witness：ML-DSA 签名 <strong>+ 公钥</strong>（公钥不再公开）</dd>
+  <dt>输出</dt><dd>不泄露公钥的 ML-DSA 签名持有证明，对比 858 ms 基线</dd>
+  <dt>负责</dt><dd>把 ExpandA（从公钥种子展开公开矩阵）和 <code>tr</code>（公钥的哈希）放进电路，约多 96 + 10 次 Keccak 置换</dd>
+  <dt>何时用</dt><dd>他们说「PQ（Post-Quantum 后量子）只做 ML-DSA」时</dd>
+</dl></div>
+<details class="how">
+<summary>A 的第一周</summary>
+<p>跑通 <code>BM_MLDSA44ZK_Prove</code>（他们仓库里 ML-DSA-44 ZK prover 的 benchmark，BM = benchmark），按子电路做 profile（性能剖析：看时间花在哪一块）。</p>
+</details>
+<p><strong>C（规范一致性 / 形式化）</strong>不上 slide。只在他们主动提形式化时说：「我的强项是在密码学 artifact 里找静默 bug，可以在形式化之前把实现层扫一遍，同时学 Lean（Lean 4 定理证明器）。」</p>
 
 <h2>4. 要问他们的问题（挑 3–4 个）</h2>
 <ol>
-  <li>What does the post-quantum roadmap for Longfellow look like — is the next target issuer-side ML-DSA in mdoc, or device binding first?</li>
+  <li>What does the post-quantum roadmap for Longfellow look like — is the next target issuer-side ML-DSA in mdoc, or device binding first?<br><span class="ask">mdoc = mobile document，手机证件格式；device binding = 设备绑定，出示时用手机里的密钥签名。</span></li>
   <li>Your ML-DSA circuit is marked experimental. What would it take for it to become production-grade — performance, formal verification, or the spec side?</li>
-    <li>Is the Rust rewrite going to be the main code base going forward? Where would an intern's code land?</li>
+  <li>Is the Rust rewrite going to be the main code base going forward? Where would an intern's code land?</li>
   <li>Is Falcon on your radar, or is ML-DSA the only post-quantum target for now?</li>
 </ol>
 
 <h2>5. 工作授权 —— 不主动提</h2>
-<div class="warn"><strong>2026-10-28 决定：这次不谈 OPT / 时间线。</strong>对方还没表态感兴趣，第一次见面不需要。下面这段只在对方<strong>直接问</strong>时备用。</div>
+<div class="warn"><strong>2026-10-28 决定：这次不谈 OPT（Optional Practical Training，F-1 学生的工作授权）/ 时间线。</strong>对方还没表态感兴趣，第一次见面不需要。下面这段只在对方<strong>直接问</strong>时备用。</div>
 <div class="say">I'm a returning student — I graduate in June 2028 — and I'm authorized to work in the US through OPT for the summer, so no sponsorship is needed. One practical note: my school processes the summer OPT once I have an offer letter, so an earlier offer makes the timeline comfortable.</div>
-<p>背景（自己知道就行，别展开）：VT 的 CPT 通道已关；走 pre-completion OPT，VT 要求先有 offer letter 才出 I-20；递 I-765 后需要 premium processing（30 天）才赶得上暑期开工；2027-04 之后才拿到 offer 基本来不及。详见 <code>Internship2027/reference/visa-constraints.md</code>。</p>
+<p>背景（自己知道就行，别展开）：VT（Virginia Tech）的 CPT（Curricular Practical Training，课程实习授权）通道已关；走 pre-completion OPT（毕业前的 OPT），VT 要求先有 offer letter 才出新的 I-20（学校出的 F-1 身份文件）；递 I-765（工作许可申请表）后需要 premium processing（移民局付费加急，30 天）才赶得上暑期开工；2027-04 之后才拿到 offer 基本来不及。详见 <code>Internship2027/reference/visa-constraints.md</code>。</p>
 <div class="warn">只在对方问到授权 / 时间线时说；不要主动大段解释签证。表单类问题：legally authorized = Yes，require sponsorship = No。</div>
 
-<h2>6. 结尾：一定要拿到的下一步（slide 第 10 页）</h2>
+<h2>6. 结尾：一定要拿到的下一步（slide 第 8 页）</h2>
+<p>背景：Google 的 PhD SWE intern（PhD Software Engineer intern，博士软件工程实习）先进一个候选池，host 可以从池里点名要人（request）。</p>
 <div class="say">I'm already in the PhD SWE intern pool. If you think there's a fit, would you be open to requesting me from the pool for your team? I'm happy to send a one-page project sketch this week to help make the case.</div>
 <p><strong>说完就停，等他们回答，不要自己接话。</strong>会后 24 小时内：发感谢信 + 一页 sketch（按他们会上表现出兴趣的那个方向写）。</p>
 
 <h2>7. 雷区</h2>
 <ul>
-  <li>HERO 只说 <strong>untrusted helper</strong>，不提 SGX（投稿版没有 SGX）。</li>
-  <li>SHIELD 是「一个 CA 下的 n 台签名服务器，n-of-n，一次性可信 setup」—— 不是「多个 CA 联合签名」，不是 t-of-n，没有 DKG。</li>
+  <li>HERO（你的 ORAM 工作）只说 <strong>untrusted helper</strong>，不提 SGX（Intel Software Guard Extensions；投稿版没有 SGX）。</li>
+  <li>SHIELD 是「一个 CA（Certificate Authority 证书颁发机构）下的 n 台签名服务器，n-of-n（n 台全部参与才能签），一次性可信 setup」—— 不是「多个 CA 联合签名」，不是 t-of-n（任意 t 台可签），没有 DKG（Distributed Key Generation 分布式密钥生成）。</li>
   <li>不说「我测过 ZK 里的 ML-DSA 验签」；说「the same cost structure from the MPC side」。</li>
-  <li>不说「两大 NIST 后量子签名标准」（还有 SLH-DSA；FIPS 206 未定稿），说「both lattice-based signatures NIST selected」。</li>
+  <li>不说「两大 NIST 后量子签名标准」（还有 SLH-DSA = Stateless Hash-Based Digital Signature Algorithm，FIPS 205；FIPS 206 未定稿），说「both lattice-based signatures NIST selected」。</li>
   <li>不贬低 Longfellow 的 ML-DSA 测试电路。</li>
 </ul>
 
@@ -79,21 +192,21 @@
   <button class="opt">先讲 Falcon 电路，再讲 ML-DSA 端到端</button>
   <button class="opt">把 A、B、C、F 四个方向一次全部讲完</button>
   <button class="opt">先讲 B 端到端，看反应再展开 Falcon</button>
-  <div class="why">B 门槛最低、和 SHIELD 直接相连；F 研究味更重，看他们兴趣再展开；A 备用。</div>
+  <div class="why">B 门槛最低（验签电路已存在）；F 研究味更重，看他们兴趣再展开；A 备用。</div>
 </div>
 <div class="quiz" data-answer="0">
-  <div class="q">Q2. 项目 B 为什么不需要改 Longfellow 的 ML-DSA 电路？</div>
-  <button class="opt">SHIELD 输出的是逐比特标准的 ML-DSA 签名</button>
-  <button class="opt">SHIELD 的签名可以直接跳过范围检查步骤</button>
-  <button class="opt">Longfellow 已经支持门限签名的专用格式</button>
-  <div class="why">SHIELD 的签名与单方签名逐比特相同（过 NIST KAT），holder 侧看不出区别。</div>
+  <div class="q">Q2. 要让 mdoc 后量子，发证方那边需要改什么？</div>
+  <button class="opt">只把签名算法从 ECDSA 换成 ML-DSA 或 Falcon</button>
+  <button class="opt">必须改成多台服务器的门限签名才行</button>
+  <button class="opt">必须先换掉 Longfellow 的证明系统</button>
+  <div class="why">证明系统已经只依赖哈希；发证方只需换签名算法，单机还是门限签名对持有人侧没有区别。</div>
 </div>
 <div class="quiz" data-answer="1">
   <div class="q">Q3. 被问工作授权时，哪句话最准确？</div>
   <button class="opt">我需要公司为暑期实习办理 H-1B 担保</button>
   <button class="opt">暑期通过 OPT 工作，不需要任何担保</button>
   <button class="opt">我可以通过 CPT 立即开始远程兼职工作</button>
-  <div class="why">CPT 已关；主线是 pre-completion OPT，无需 sponsorship。现在开始任何形式的工作都不行。</div>
+  <div class="why">CPT 已关；主线是 pre-completion OPT，无需 sponsorship（H-1B 是需要雇主担保的工作签证）。现在开始任何形式的工作都不行。</div>
 </div>
 <div class="quiz" data-answer="2">
   <div class="q">Q4. 会议结束前最重要的一件事是？</div>
